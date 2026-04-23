@@ -1,15 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-const inicial = [
-  { id: 1, tipo: "Gasto", fecha: "2026-04-19", categoria: "Fútbol / Club", descripcion: "Viático jugador 2013", monto: 30000 },
-  { id: 2, tipo: "Gasto", fecha: "2026-04-19", categoria: "Fútbol / Club", descripcion: "Viático jugador 2013", monto: 15000 },
-  { id: 3, tipo: "Gasto", fecha: "2026-04-19", categoria: "Fútbol / Club", descripcion: "Viático jugador 2013", monto: 15000 },
-  { id: 4, tipo: "Gasto", fecha: "2026-04-19", categoria: "Fútbol / Club", descripcion: "Buffet Club El Triunfo", monto: 43500 },
-  { id: 5, tipo: "Gasto", fecha: "2026-04-19", categoria: "Ocio / Kiosco", descripcion: "Kiosco fin de semana", monto: 78200 },
-  { id: 6, tipo: "Ingreso", fecha: "2026-04-20", categoria: "Reintegro / Club", descripcion: "Aportes para remeras Club El Triunfo", monto: 67500 },
-];
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 function formatoMoneda(n) {
   return new Intl.NumberFormat("es-AR", {
@@ -63,30 +60,58 @@ const thtdStyle = {
 };
 
 export default function Page() {
-  const [movimientos, setMovimientos] = useState(inicial);
+  const [movimientos, setMovimientos] = useState([]);
   const [tipo, setTipo] = useState("Gasto");
-  const [fecha, setFecha] = useState("2026-04-20");
+  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [categoria, setCategoria] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [monto, setMonto] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const cargarMovimientos = async () => {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("movimientos")
+        .select("*")
+        .order("id", { ascending: false });
+
+      if (error) {
+        console.error("Error cargando movimientos:", error);
+        alert("Error cargando movimientos desde Supabase");
+      } else {
+        setMovimientos(data || []);
+      }
+
+      setLoading(false);
+    };
+
+    cargarMovimientos();
+  }, []);
 
   const totalGastos = useMemo(
-    () => movimientos.filter((m) => m.tipo === "Gasto").reduce((acc, m) => acc + m.monto, 0),
+    () =>
+      movimientos
+        .filter((m) => m.tipo === "Gasto")
+        .reduce((acc, m) => acc + Number(m.monto || 0), 0),
     [movimientos]
   );
 
   const totalIngresos = useMemo(
-    () => movimientos.filter((m) => m.tipo === "Ingreso").reduce((acc, m) => acc + m.monto, 0),
+    () =>
+      movimientos
+        .filter((m) => m.tipo === "Ingreso")
+        .reduce((acc, m) => acc + Number(m.monto || 0), 0),
     [movimientos]
   );
 
   const neto = totalIngresos - totalGastos;
 
-  const agregarMovimiento = () => {
+  const agregarMovimiento = async () => {
     if (!categoria || !descripcion || !monto) return;
 
     const nuevo = {
-      id: Date.now(),
       tipo,
       fecha,
       categoria,
@@ -94,13 +119,38 @@ export default function Page() {
       monto: Number(monto),
     };
 
-    setMovimientos((prev) => [nuevo, ...prev]);
+    const { data, error } = await supabase
+      .from("movimientos")
+      .insert([nuevo])
+      .select();
+
+    if (error) {
+      console.error("Error guardando movimiento:", error);
+      alert("Error guardando en Supabase");
+      return;
+    }
+
+    if (data && data.length > 0) {
+      setMovimientos((prev) => [data[0], ...prev]);
+    }
+
     setCategoria("");
     setDescripcion("");
     setMonto("");
   };
 
-  const borrarMovimiento = (id) => {
+  const borrarMovimiento = async (id) => {
+    const { error } = await supabase
+      .from("movimientos")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error borrando movimiento:", error);
+      alert("Error borrando en Supabase");
+      return;
+    }
+
     setMovimientos((prev) => prev.filter((m) => m.id !== id));
   };
 
@@ -115,9 +165,11 @@ export default function Page() {
       }}
     >
       <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-        <h1 style={{ fontSize: "32px", marginBottom: "8px" }}>Tablero financiero Fran</h1>
+        <h1 style={{ fontSize: "32px", marginBottom: "8px" }}>
+          Tablero financiero Fran
+        </h1>
         <p style={{ color: "#94a3b8", marginBottom: "24px" }}>
-          Versión simple para dejar online primero.
+          Ahora sí, conectado a Supabase.
         </p>
 
         <div
@@ -152,56 +204,115 @@ export default function Page() {
               gap: "12px",
             }}
           >
-            <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+              style={inputStyle}
+            >
               <option value="Gasto">Gasto</option>
               <option value="Ingreso">Ingreso</option>
             </select>
 
-            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
-            <input placeholder="Categoría" value={categoria} onChange={(e) => setCategoria(e.target.value)} style={inputStyle} />
-            <input placeholder="Descripción" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} style={inputStyle} />
-            <input type="number" placeholder="Monto" value={monto} onChange={(e) => setMonto(e.target.value)} style={inputStyle} />
+            <input
+              type="date"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="Categoría"
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              placeholder="Descripción"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              type="number"
+              placeholder="Monto"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              style={inputStyle}
+            />
           </div>
 
-          <button onClick={agregarMovimiento} style={buttonStyle}>Agregar</button>
+          <button onClick={agregarMovimiento} style={buttonStyle}>
+            Agregar
+          </button>
         </div>
 
         <div style={cardStyle}>
           <h2 style={{ marginTop: 0 }}>Movimientos</h2>
 
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
-              <thead>
-                <tr style={{ textAlign: "left", color: "#94a3b8" }}>
-                  <th style={thtdStyle}>Fecha</th>
-                  <th style={thtdStyle}>Tipo</th>
-                  <th style={thtdStyle}>Categoría</th>
-                  <th style={thtdStyle}>Descripción</th>
-                  <th style={thtdStyle}>Monto</th>
-                  <th style={thtdStyle}>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movimientos.map((m) => (
-                  <tr key={m.id} style={{ borderTop: "1px solid #334155" }}>
-                    <td style={thtdStyle}>{m.fecha}</td>
-                    <td style={thtdStyle}>{m.tipo}</td>
-                    <td style={thtdStyle}>{m.categoria}</td>
-                    <td style={thtdStyle}>{m.descripcion}</td>
-                    <td style={thtdStyle}>{formatoMoneda(m.monto)}</td>
-                    <td style={thtdStyle}>
-                      <button
-                        onClick={() => borrarMovimiento(m.id)}
-                        style={{ ...buttonStyle, background: "#7f1d1d", marginTop: 0 }}
-                      >
-                        Borrar
-                      </button>
-                    </td>
+          {loading ? (
+            <p style={{ color: "#94a3b8" }}>Cargando movimientos...</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginTop: "12px",
+                }}
+              >
+                <thead>
+                  <tr style={{ textAlign: "left", color: "#94a3b8" }}>
+                    <th style={thtdStyle}>Fecha</th>
+                    <th style={thtdStyle}>Tipo</th>
+                    <th style={thtdStyle}>Categoría</th>
+                    <th style={thtdStyle}>Descripción</th>
+                    <th style={thtdStyle}>Monto</th>
+                    <th style={thtdStyle}>Acción</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {movimientos.map((m) => (
+                    <tr key={m.id} style={{ borderTop: "1px solid #334155" }}>
+                      <td style={thtdStyle}>{m.fecha}</td>
+                      <td style={thtdStyle}>{m.tipo}</td>
+                      <td style={thtdStyle}>{m.categoria}</td>
+                      <td style={thtdStyle}>{m.descripcion}</td>
+                      <td style={thtdStyle}>{formatoMoneda(m.monto)}</td>
+                      <td style={thtdStyle}>
+                        <button
+                          onClick={() => borrarMovimiento(m.id)}
+                          style={{
+                            ...buttonStyle,
+                            background: "#7f1d1d",
+                            marginTop: 0,
+                          }}
+                        >
+                          Borrar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {movimientos.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan="6"
+                        style={{
+                          ...thtdStyle,
+                          color: "#94a3b8",
+                          textAlign: "center",
+                        }}
+                      >
+                        No hay movimientos todavía.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </main>
