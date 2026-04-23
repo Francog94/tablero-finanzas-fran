@@ -226,7 +226,7 @@ function PieChartSimple({ data }) {
               }}
             />
             <span style={{ color: "#cbd5e1" }}>
-              {item.name}: <strong>{item.value}</strong>
+              {item.name}: <strong>{money(item.value)}</strong>
             </span>
           </div>
         ))}
@@ -244,7 +244,7 @@ function BarsSimple({ data }) {
         <div key={i}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>{item.name}</span>
-            <strong>{item.value}</strong>
+            <strong>{money(item.value)}</strong>
           </div>
           <div style={{ height: 10, background: "#1e293b", borderRadius: 999 }}>
             <div
