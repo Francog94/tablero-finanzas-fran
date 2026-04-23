@@ -130,13 +130,15 @@ const [editData, setEditData] = useState({
   }
 
   const movimientosFiltrados = useMemo(() => {
-    return movimientos.filter((m) => {
-      const texto = `${m.categoria} ${m.descripcion}`.toLowerCase();
-      const matchTexto = texto.includes(filtroTexto.toLowerCase());
-      const matchTipo = filtroTipo === "Todos" ? true : m.tipo === filtroTipo;
-      return matchTexto && matchTipo;
-    });
-  }, [movimientos, filtroTexto, filtroTipo]);
+  return movimientos.filter((m) => {
+    const texto = `${m.categoria} ${m.descripcion}`.toLowerCase();
+    const matchTexto = texto.includes(filtroTexto.toLowerCase());
+    const matchTipo = filtroTipo === "Todos" ? true : m.tipo === filtroTipo;
+    const matchMes = m.fecha.startsWith(mesSeleccionado);
+
+    return matchTexto && matchTipo && matchMes;
+  });
+}, [movimientos, filtroTexto, filtroTipo, mesSeleccionado]);
 
   const totalGastos = useMemo(
     () =>
@@ -551,6 +553,13 @@ async function guardarEdicion() {
             <h2 style={{ marginTop: 0, marginBottom: 0 }}>Movimientos</h2>
 
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <input
+  type="month"
+  value={mesSeleccionado}
+  onChange={(e) => setMesSeleccionado(e.target.value)}
+  style={{ ...inputStyle, minWidth: 180 }}
+/>
+              
               <input
                 placeholder="Buscar"
                 value={filtroTexto}
