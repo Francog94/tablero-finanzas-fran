@@ -3,6 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+const CATEGORIAS = [
+  "Fútbol / Club",
+  "Comida / Trabajo",
+  "Transporte",
+  "Ocio / Kiosco",
+  "Apuestas",
+  "Entrenamiento / Familia",
+  "Hogar",
+  "Servicios",
+  "Reintegro / Club",
+  "Indumentaria / Club"
+];
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -416,7 +429,18 @@ export default function Page() {
             </select>
 
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
-            <input placeholder="Categoría" value={categoria} onChange={(e) => setCategoria(e.target.value)} style={inputStyle} />
+            <select
+  value={categoria}
+  onChange={(e) => setCategoria(e.target.value)}
+  style={inputStyle}
+>
+  <option value="">Categoría</option>
+  {CATEGORIAS.map((cat) => (
+    <option key={cat} value={cat}>
+      {cat}
+    </option>
+  ))}
+</select>
             <input placeholder="Descripción" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} style={inputStyle} />
             <input type="number" placeholder="Monto" value={monto} onChange={(e) => setMonto(e.target.value)} style={inputStyle} />
           </div>
