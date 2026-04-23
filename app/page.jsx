@@ -179,6 +179,89 @@ const thtdStyle = {
   padding: "12px 8px",
 };
 
+function PieChartSimple({ data }) {
+  const total = data.reduce((a, b) => a + b.value, 0);
+  let acumulado = 0;
+
+  if (!data.length || total === 0) {
+    return <div style={{ color: "#94a3b8" }}>No hay datos</div>;
+  }
+
+  const colores = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+  return (
+    <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+      <svg width="220" height="220" viewBox="0 0 42 42">
+        {data.map((item, i) => {
+          const porcentaje = (item.value / total) * 100;
+          const dash = `${porcentaje} ${100 - porcentaje}`;
+          const offset = 25 - acumulado;
+          acumulado += porcentaje;
+
+          return (
+            <circle
+              key={i}
+              cx="21"
+              cy="21"
+              r="15.915"
+              fill="transparent"
+              stroke={colores[i % colores.length]}
+              strokeWidth="6"
+              strokeDasharray={dash}
+              strokeDashoffset={offset}
+            />
+          );
+        })}
+      </svg>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {data.map((item, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 999,
+                background: colores[i % colores.length],
+              }}
+            />
+            <span style={{ color: "#cbd5e1" }}>
+              {item.name}: <strong>{item.value}</strong>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BarsSimple({ data }) {
+  const max = Math.max(...data.map((x) => x.value), 1);
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {data.map((item, i) => (
+        <div key={i}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>{item.name}</span>
+            <strong>{item.value}</strong>
+          </div>
+          <div style={{ height: 10, background: "#1e293b", borderRadius: 999 }}>
+            <div
+              style={{
+                width: `${(item.value / max) * 100}%`,
+                height: "100%",
+                background: "#3b82f6",
+                borderRadius: 999,
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Page() {
   const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
