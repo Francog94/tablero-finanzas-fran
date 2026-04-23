@@ -23,6 +23,100 @@ const supabase = createClient(
 );
 
 function money(n) {
+  function PieChartSimple({ data }) {
+  const total = data.reduce((a, b) => a + b.value, 0);
+  let acumulado = 0;
+
+  if (!data.length || total === 0) {
+    return <div style={{ color: "#94a3b8" }}>No hay datos</div>;
+  }
+
+  const colores = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
+
+  return (
+    <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+      <svg width="260" height="260" viewBox="0 0 42 42">
+        {data.map((item, i) => {
+          const porcentaje = (item.value / total) * 100;
+          const dash = `${porcentaje} ${100 - porcentaje}`;
+          const offset = 25 - acumulado;
+          acumulado += porcentaje;
+
+          return (
+            <circle
+              key={i}
+              cx="21"
+              cy="21"
+              r="15.915"
+              fill="transparent"
+              stroke={colores[i % colores.length]}
+              strokeWidth="6"
+              strokeDasharray={dash}
+              strokeDashoffset={offset}
+            />
+          );
+        })}
+      </svg>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {data.map((item, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 999,
+                background: colores[i % colores.length],
+                display: "inline-block",
+              }}
+            />
+            <span style={{ color: "#cbd5e1" }}>
+              {item.name}: <strong>{money(item.value)}</strong>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BarsSimple({ data }) {
+  const colores = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
+  const max = Math.max(...data.map((x) => x.value), 1);
+
+  if (!data.length) {
+    return <div style={{ color: "#94a3b8" }}>No hay datos</div>;
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      {data.map((item, i) => (
+        <div key={i}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ color: "#cbd5e1" }}>{item.name}</span>
+            <strong>{money(item.value)}</strong>
+          </div>
+          <div
+            style={{
+              height: 14,
+              background: "#1e293b",
+              borderRadius: 999,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${(item.value / max) * 100}%`,
+                height: "100%",
+                background: colores[i % colores.length],
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
@@ -171,6 +265,25 @@ export default function Page() {
   }, [movimientosFiltrados]);
 
   const neto = totalIngresos - totalGastos;
+
+  const porCategoria = useMemo(() => {
+  const mapa = {};
+
+  movimientosFiltrados
+    .filter((m) => m.tipo === "Gasto")
+    .forEach((m) => {
+      mapa[m.categoria] = (mapa[m.categoria] || 0) + Number(m.monto || 0);
+    });
+
+  return Object.entries(mapa)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+}, [movimientosFiltrados]);
+
+const resumenTipo = [
+  { name: "Gastos", value: totalGastos },
+  { name: "Ingresos", value: totalIngresos },
+];
 
   async function agregarMovimiento() {
     if (!categoria || !descripcion || !monto) return;
@@ -383,6 +496,27 @@ export default function Page() {
               marginBottom: "16px",
             }}
           >
+            
+           {/* 👇 ACÁ PEGÁS LOS GRÁFICOS */}
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+    gap: "16px",
+    marginBottom: "24px",
+  }}
+>
+  <div style={cardStyle}>
+    <h2 style={{ marginTop: 0 }}>Gastos por categoría</h2>
+    <PieChartSimple data={porCategoria} />
+  </div>
+
+  <div style={cardStyle}>
+    <h2 style={{ marginTop: 0 }}>Ingresos vs gastos</h2>
+    <BarsSimple data={resumenTipo} />
+  </div>
+</div>
+
             <h2 style={{ marginTop: 0, marginBottom: 0 }}>Movimientos</h2>
 
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
