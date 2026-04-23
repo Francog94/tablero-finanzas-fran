@@ -93,6 +93,9 @@ export default function Page() {
   const [monto, setMonto] = useState("");
   const [filtroTexto, setFiltroTexto] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("Todos");
+  const [mesSeleccionado, setMesSeleccionado] = useState(
+  new Date().toISOString().slice(0, 7)
+);
   const [editandoId, setEditandoId] = useState(null);
 
 const [editData, setEditData] = useState({
