@@ -608,10 +608,9 @@ async function guardarEdicion() {
       Todos
     </button>
   </div>
-
 </div>
 
-          {loading ? (
+{loading ? (
             <p style={{ color: "#94a3b8" }}>Cargando movimientos...</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
