@@ -750,8 +750,8 @@ async function guardarEdicion() {
               </table>
             </div>
           )}
-        </div>
-      </div>
-    </main>
+              </div>
+    </div>
+  </main>
   );
 }
