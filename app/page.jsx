@@ -445,6 +445,46 @@ const resumenTipo = [
     }));
 }, [movimientosFiltrados]);
 
+  const resumen = useMemo(() => {
+  if (!movimientosFiltrados.length) return null;
+
+  // total días únicos
+  const diasUnicos = [...new Set(movimientosFiltrados.map(m => m.fecha))].length;
+
+  // promedio diario
+  const promedio = diasUnicos ? totalGastos / diasUnicos : 0;
+
+  // categoría más gastada
+  const mapaCat = {};
+  movimientosFiltrados
+    .filter(m => m.tipo === "Gasto")
+    .forEach(m => {
+      mapaCat[m.categoria] = (mapaCat[m.categoria] || 0) + Number(m.monto || 0);
+    });
+
+  const topCategoria = Object.entries(mapaCat)
+    .sort((a, b) => b[1] - a[1])[0];
+
+  // peor día
+  const mapaDia = {};
+  movimientosFiltrados.forEach(m => {
+    if (!mapaDia[m.fecha]) mapaDia[m.fecha] = 0;
+    if (m.tipo === "Gasto") {
+      mapaDia[m.fecha] += Number(m.monto || 0);
+    }
+  });
+
+  const peorDia = Object.entries(mapaDia)
+    .sort((a, b) => b[1] - a[1])[0];
+
+  return {
+    promedio,
+    topCategoria,
+    peorDia,
+    estado: totalIngresos - totalGastos >= 0 ? "positivo" : "negativo"
+  };
+}, [movimientosFiltrados, totalGastos, totalIngresos]);
+
   async function agregarMovimiento() {
     if (!categoria || !descripcion || !monto) return;
 
@@ -679,6 +719,45 @@ const resumenTipo = [
             <div style={{ ...cardStyle, marginBottom: "24px" }}>
   <h2 style={{ marginTop: 0 }}>Evolución por día</h2>
   <LineSimple data={porDia} />
+</div>
+            <div style={{ ...cardStyle, marginBottom: "24px" }}>
+  <h2 style={{ marginTop: 0 }}>Resumen del mes</h2>
+
+  {!resumen ? (
+    <div style={{ color: "#94a3b8" }}>No hay datos</div>
+  ) : (
+    <div style={{ display: "grid", gap: 10, color: "#cbd5e1" }}>
+      <div>
+        📊 Promedio diario de gastos: <strong>{money(resumen.promedio)}</strong>
+      </div>
+
+      {resumen.topCategoria && (
+        <div>
+          🏆 Categoría con más gasto:{" "}
+          <strong>
+            {resumen.topCategoria[0]} ({money(resumen.topCategoria[1])})
+          </strong>
+        </div>
+      )}
+
+      {resumen.peorDia && (
+        <div>
+          🔥 Día con más gasto:{" "}
+          <strong>
+            {resumen.peorDia[0]} ({money(resumen.peorDia[1])})
+          </strong>
+        </div>
+      )}
+
+      <div>
+        {resumen.estado === "positivo" ? (
+          <span style={{ color: "#10b981" }}>💰 Estás en superávit</span>
+        ) : (
+          <span style={{ color: "#ef4444" }}>⚠️ Estás en déficit</span>
+        )}
+      </div>
+    </div>
+  )}
 </div>
 
             <h2 style={{ marginTop: 0, marginBottom: 0 }}>Movimientos</h2>
