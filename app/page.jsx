@@ -317,6 +317,7 @@ function LineSimple({ data }) {
 export default function Page() {
   const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
   const [tipo, setTipo] = useState("Gasto");
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
@@ -340,17 +341,29 @@ export default function Page() {
   });
 
   useEffect(() => {
-    cargarMovimientos();
-  }, []);
+  async function init() {
+    const { data } = await supabase.auth.getUser();
+    setUser(data.user);
 
-  async function cargarMovimientos() {
+    if (data.user) {
+      cargarMovimientos(data.user.id);
+    } else {
+      setLoading(false);
+    }
+  }
+
+  init();
+}, []);
+
+  async function cargarMovimientos(userId) {
     setLoading(true);
 
     const { data, error } = await supabase
-      .from("movimientos")
-      .select("*")
-      .order("fecha", { ascending: false })
-      .order("id", { ascending: false });
+  .from("movimientos")
+  .select("*")
+  .eq("user_id", userId)
+  .order("fecha", { ascending: false })
+  .order("id", { ascending: false });
 
     if (error) {
       console.error("Error cargando movimientos:", error);
@@ -488,13 +501,14 @@ const resumenTipo = [
   async function agregarMovimiento() {
     if (!categoria || !descripcion || !monto) return;
 
-    const nuevo = {
-      tipo,
-      fecha,
-      categoria,
-      descripcion,
-      monto: Number(monto),
-    };
+   const nuevo = {
+  tipo,
+  fecha,
+  categoria,
+  descripcion,
+  monto: Number(monto),
+  user_id: user.id,
+};
 
     const { data, error } = await supabase
       .from("movimientos")
