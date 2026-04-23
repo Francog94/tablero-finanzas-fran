@@ -420,6 +420,31 @@ const resumenTipo = [
   { name: "Ingresos", value: totalIngresos },
 ];
 
+  const porDia = useMemo(() => {
+  const mapa = {};
+
+  movimientosFiltrados.forEach((m) => {
+    if (!mapa[m.fecha]) {
+      mapa[m.fecha] = {
+        fecha: m.fecha,
+        gastos: 0,
+        ingresos: 0,
+      };
+    }
+
+    if (m.tipo === "Gasto") mapa[m.fecha].gastos += Number(m.monto || 0);
+    if (m.tipo === "Ingreso") mapa[m.fecha].ingresos += Number(m.monto || 0);
+  });
+
+  return Object.values(mapa)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    .map((x) => ({
+      ...x,
+      neto: x.ingresos - x.gastos,
+      fechaCorta: x.fecha.slice(5),
+    }));
+}, [movimientosFiltrados]);
+
   async function agregarMovimiento() {
     if (!categoria || !descripcion || !monto) return;
 
@@ -650,6 +675,10 @@ const resumenTipo = [
     <h2 style={{ marginTop: 0 }}>Ingresos vs gastos</h2>
     <BarsSimple data={resumenTipo} />
   </div>
+</div>
+            <div style={{ ...cardStyle, marginBottom: "24px" }}>
+  <h2 style={{ marginTop: 0 }}>Evolución por día</h2>
+  <LineSimple data={porDia} />
 </div>
 
             <h2 style={{ marginTop: 0, marginBottom: 0 }}>Movimientos</h2>
