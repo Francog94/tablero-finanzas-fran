@@ -27,6 +27,49 @@ function money(n) {
   }).format(Number(n || 0));
 }
 
+const cardStyle = {
+  background: "#111827",
+  border: "1px solid #334155",
+  borderRadius: "16px",
+  padding: "16px",
+};
+
+const labelStyle = {
+  margin: 0,
+  color: "#94a3b8",
+  fontSize: "14px",
+};
+
+const valueStyle = {
+  fontSize: "28px",
+  fontWeight: 700,
+  marginTop: "8px",
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "12px",
+  borderRadius: "10px",
+  border: "1px solid #334155",
+  background: "#0f172a",
+  color: "#e2e8f0",
+};
+
+const buttonStyle = {
+  marginTop: "16px",
+  padding: "12px 16px",
+  borderRadius: "10px",
+  border: "none",
+  background: "#2563eb",
+  color: "white",
+  cursor: "pointer",
+  fontWeight: 700,
+};
+
+const thtdStyle = {
+  padding: "12px 8px",
+};
+
 export default function Page() {
   const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
