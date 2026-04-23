@@ -98,6 +98,20 @@ export default function Page() {
 );
   const [editandoId, setEditandoId] = useState(null);
 
+  const setMesActual = () => {
+  setMesSeleccionado(new Date().toISOString().slice(0, 7));
+};
+
+const setMesAnterior = () => {
+  const fecha = new Date();
+  fecha.setMonth(fecha.getMonth() - 1);
+  setMesSeleccionado(fecha.toISOString().slice(0, 7));
+};
+
+const setTodos = () => {
+  setMesSeleccionado("");
+};
+
 const [editData, setEditData] = useState({
   tipo: "Gasto",
   fecha: "",
@@ -134,7 +148,9 @@ const [editData, setEditData] = useState({
     const texto = `${m.categoria} ${m.descripcion}`.toLowerCase();
     const matchTexto = texto.includes(filtroTexto.toLowerCase());
     const matchTipo = filtroTipo === "Todos" ? true : m.tipo === filtroTipo;
-    const matchMes = m.fecha.startsWith(mesSeleccionado);
+    const matchMes = mesSeleccionado
+  ? m.fecha.startsWith(mesSeleccionado)
+  : true;
 
     return matchTexto && matchTipo && matchMes;
   });
@@ -553,31 +569,47 @@ async function guardarEdicion() {
             <h2 style={{ marginTop: 0, marginBottom: 0 }}>Movimientos</h2>
 
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              <input
-  type="month"
-  value={mesSeleccionado}
-  onChange={(e) => setMesSeleccionado(e.target.value)}
-  style={{ ...inputStyle, minWidth: 180 }}
-/>
-              
-              <input
-                placeholder="Buscar"
-                value={filtroTexto}
-                onChange={(e) => setFiltroTexto(e.target.value)}
-                style={{ ...inputStyle, minWidth: 220 }}
-              />
 
-              <select
-                value={filtroTipo}
-                onChange={(e) => setFiltroTipo(e.target.value)}
-                style={{ ...inputStyle, minWidth: 160 }}
-              >
-                <option value="Todos">Todos</option>
-                <option value="Gasto">Gasto</option>
-                <option value="Ingreso">Ingreso</option>
-              </select>
-            </div>
-          </div>
+  <input
+    type="month"
+    value={mesSeleccionado}
+    onChange={(e) => setMesSeleccionado(e.target.value)}
+    style={{ ...inputStyle, minWidth: 180 }}
+  />
+
+  <input
+    placeholder="Buscar"
+    value={filtroTexto}
+    onChange={(e) => setFiltroTexto(e.target.value)}
+    style={{ ...inputStyle, minWidth: 220 }}
+  />
+
+  <select
+    value={filtroTipo}
+    onChange={(e) => setFiltroTipo(e.target.value)}
+    style={{ ...inputStyle, minWidth: 160 }}
+  >
+    <option value="Todos">Todos</option>
+    <option value="Gasto">Gasto</option>
+    <option value="Ingreso">Ingreso</option>
+  </select>
+
+  {/* 👇 ACÁ VAN LOS BOTONES */}
+  <div style={{ display: "flex", gap: "8px" }}>
+    <button onClick={setMesActual} style={buttonStyle}>
+      Este mes
+    </button>
+
+    <button onClick={setMesAnterior} style={buttonStyle}>
+      Mes pasado
+    </button>
+
+    <button onClick={setTodos} style={buttonStyle}>
+      Todos
+    </button>
+  </div>
+
+</div>
 
           {loading ? (
             <p style={{ color: "#94a3b8" }}>Cargando movimientos...</p>
