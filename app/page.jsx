@@ -262,6 +262,58 @@ function BarsSimple({ data }) {
   );
 }
 
+function LineSimple({ data }) {
+  if (!data.length) {
+    return <div style={{ color: "#94a3b8" }}>No hay datos</div>;
+  }
+
+  const width = 760;
+  const height = 260;
+  const pad = 30;
+
+  const valores = data.flatMap((d) => [d.gastos, d.ingresos, d.neto]);
+  const max = Math.max(...valores, 1);
+
+  const getX = (i) =>
+    pad + (i * (width - pad * 2)) / Math.max(data.length - 1, 1);
+
+  const getY = (v) => height - pad - (v / max) * (height - pad * 2);
+
+  const makePath = (key) =>
+    data
+      .map((d, i) => `${i === 0 ? "M" : "L"} ${getX(i)} ${getY(d[key])}`)
+      .join(" ");
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <svg width={width} height={height} style={{ maxWidth: "100%" }}>
+        <path d={makePath("gastos")} fill="none" stroke="#ef4444" strokeWidth="3" />
+        <path d={makePath("ingresos")} fill="none" stroke="#10b981" strokeWidth="3" />
+        <path d={makePath("neto")} fill="none" stroke="#3b82f6" strokeWidth="3" />
+
+        {data.map((d, i) => (
+          <text
+            key={i}
+            x={getX(i)}
+            y={height - 8}
+            textAnchor="middle"
+            fill="#94a3b8"
+            fontSize="11"
+          >
+            {d.fechaCorta}
+          </text>
+        ))}
+      </svg>
+
+      <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+        <span style={{ color: "#ef4444" }}>■ Gastos</span>
+        <span style={{ color: "#10b981" }}>■ Ingresos</span>
+        <span style={{ color: "#3b82f6" }}>■ Neto</span>
+      </div>
+    </div>
+  );
+}
+
 export default function Page() {
   const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
