@@ -93,6 +93,15 @@ export default function Page() {
   const [monto, setMonto] = useState("");
   const [filtroTexto, setFiltroTexto] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("Todos");
+  const [editandoId, setEditandoId] = useState(null);
+
+const [editData, setEditData] = useState({
+  tipo: "Gasto",
+  fecha: "",
+  categoria: "",
+  descripcion: "",
+  monto: "",
+});
 
   useEffect(() => {
     cargarMovimientos();
@@ -188,6 +197,60 @@ export default function Page() {
     { name: "Ingresos", value: totalIngresos },
   ];
 
+  function iniciarEdicion(mov) {
+  setEditandoId(mov.id);
+  setEditData({
+    tipo: mov.tipo,
+    fecha: mov.fecha,
+    categoria: mov.categoria,
+    descripcion: mov.descripcion,
+    monto: String(mov.monto),
+  });
+}
+
+async function guardarEdicion() {
+  const { error } = await supabase
+    .from("movimientos")
+    .update({
+      tipo: editData.tipo,
+      fecha: editData.fecha,
+      categoria: editData.categoria,
+      descripcion: editData.descripcion,
+      monto: Number(editData.monto),
+    })
+    .eq("id", editandoId);
+
+  if (error) {
+    console.error("Error editando movimiento:", error);
+    alert("Error editando movimiento");
+    return;
+  }
+
+  setMovimientos((prev) =>
+    prev.map((m) =>
+      m.id === editandoId
+        ? {
+            ...m,
+            tipo: editData.tipo,
+            fecha: editData.fecha,
+            categoria: editData.categoria,
+            descripcion: editData.descripcion,
+            monto: Number(editData.monto),
+          }
+        : m
+    )
+  );
+
+  setEditandoId(null);
+  setEditData({
+    tipo: "Gasto",
+    fecha: "",
+    categoria: "",
+    descripcion: "",
+    monto: "",
+  });
+}
+  
   async function agregarMovimiento() {
     if (!categoria || !descripcion || !monto) return;
 
@@ -521,22 +584,116 @@ export default function Page() {
                 </thead>
                 <tbody>
                   {movimientosFiltrados.map((m) => (
-                    <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
-                      <td style={thtdStyle}>{m.fecha}</td>
-                      <td style={thtdStyle}>{m.tipo}</td>
-                      <td style={thtdStyle}>{m.categoria}</td>
-                      <td style={thtdStyle}>{m.descripcion}</td>
-                      <td style={thtdStyle}>{money(m.monto)}</td>
-                      <td style={thtdStyle}>
-                        <button
-                          onClick={() => borrarMovimiento(m.id)}
-                          style={{ ...buttonStyle, background: "#7f1d1d", marginTop: 0 }}
-                        >
-                          Borrar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+  <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          type="date"
+          value={editData.fecha}
+          onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        m.fecha
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <select
+          value={editData.tipo}
+          onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
+          style={inputStyle}
+        >
+          <option value="Gasto">Gasto</option>
+          <option value="Ingreso">Ingreso</option>
+        </select>
+      ) : (
+        m.tipo
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <select
+          value={editData.categoria}
+          onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
+          style={inputStyle}
+        >
+          <option value="">Categoría</option>
+          {CATEGORIAS.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+      ) : (
+        m.categoria
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          value={editData.descripcion}
+          onChange={(e) =>
+            setEditData({ ...editData, descripcion: e.target.value })
+          }
+          style={inputStyle}
+        />
+      ) : (
+        m.descripcion
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          type="number"
+          value={editData.monto}
+          onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        money(m.monto)
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button
+            onClick={guardarEdicion}
+            style={{ ...buttonStyle, marginTop: 0, background: "#15803d" }}
+          >
+            Guardar
+          </button>
+          <button
+            onClick={() => setEditandoId(null)}
+            style={{ ...buttonStyle, marginTop: 0, background: "#475569" }}
+          >
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => iniciarEdicion(m)}
+            style={{ ...buttonStyle, marginTop: 0, background: "#1d4ed8" }}
+          >
+            Editar
+          </button>
+          <button
+            onClick={() => borrarMovimiento(m.id)}
+            style={{ ...buttonStyle, background: "#7f1d1d", marginTop: 0 }}
+          >
+            Borrar
+          </button>
+        </div>
+      )}
+    </td>
+  </tr>
+))}
 
                   {movimientosFiltrados.length === 0 && (
                     <tr>
