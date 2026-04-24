@@ -848,24 +848,102 @@ setMonto("");
                   </thead>
                   <tbody>
                     {movimientosFiltrados.map((m) => (
-                      <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
-                        <td style={thtdStyle}>{m.fecha}</td>
-                        <td style={thtdStyle}>{m.tipo}</td>
-                        <td style={thtdStyle}>{m.categoria}</td>
-                        <td style={thtdStyle}>{m.descripcion}</td>
-                        <td style={thtdStyle}>{money(m.monto)}</td>
-                        <td style={thtdStyle}>
-                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                            <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
-                              Editar
-                            </button>
-                            <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
-                              Borrar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+  <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          type="date"
+          value={editData.fecha}
+          onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        m.fecha
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <select
+          value={editData.tipo}
+          onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
+          style={inputStyle}
+        >
+          <option value="Gasto">Gasto</option>
+          <option value="Ingreso">Ingreso</option>
+        </select>
+      ) : (
+        m.tipo
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <select
+          value={editData.categoria}
+          onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
+          style={inputStyle}
+        >
+          <option value="">Categoría</option>
+          {categorias.map((cat) => (
+            <option key={cat.id} value={cat.nombre}>
+              {cat.nombre}
+            </option>
+          ))}
+        </select>
+      ) : (
+        m.categoria
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          value={editData.descripcion}
+          onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        m.descripcion
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          type="number"
+          value={editData.monto}
+          onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        money(m.monto)
+      )}
+    </td>
+
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
+            Guardar
+          </button>
+          <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
+            Editar
+          </button>
+          <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
+            Borrar
+          </button>
+        </div>
+      )}
+    </td>
+  </tr>
+))}
 
                     {movimientosFiltrados.length === 0 && (
                       <tr>
