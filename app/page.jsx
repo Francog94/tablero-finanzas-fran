@@ -671,17 +671,28 @@ if (!user) {
 }
  
   return (
-    <main style={pageStyle}>
-      <div style={containerStyle}>
-        <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "16px",
-    flexWrap: "wrap",
-    marginBottom: "24px",
-  }}
+  <main style={pageStyle}>
+
+    <style>{`
+      .desktop-table {
+        display: block;
+      }
+
+      .mobile-cards {
+        display: none;
+      }
+
+      @media (max-width: 768px) {
+        .desktop-table {
+          display: none;
+        }
+
+        .mobile-cards {
+          display: grid;
+          gap: 14px;
+        }
+      }
+    `}</style>
 >
   <div>
     <h1 style={{ fontSize: "32px", marginBottom: "8px" }}>
@@ -916,8 +927,17 @@ if (!user) {
           {loading ? (
             <p style={{ color: "#94a3b8" }}>Cargando movimientos...</p>
           ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div
+  className="desktop-table"
+  style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+>
+  <table
+    style={{
+      width: "100%",
+      minWidth: "720px",
+      borderCollapse: "collapse",
+    }}
+  >
                 <thead>
                   <tr
                     style={{
@@ -1087,6 +1107,48 @@ if (!user) {
                 </tbody>
               </table>
             </div>
+            <div className="mobile-cards">
+  {movimientosFiltrados.map((m) => (
+    <div
+      key={m.id}
+      style={{
+        ...cardStyle,
+        padding: "16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <strong>{m.categoria}</strong>
+        <span style={{ color: "#94a3b8" }}>{m.tipo}</span>
+      </div>
+
+      <div style={{ color: "#94a3b8" }}>{m.descripcion}</div>
+
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <span>{m.fecha}</span>
+        <strong>{money(m.monto)}</strong>
+      </div>
+
+      <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+        <button onClick={() => setEditandoId(m.id)} style={buttonStyle}>
+          Editar
+        </button>
+
+        <button
+          onClick={() => borrarMovimiento(m.id)}
+          style={{
+            ...buttonStyle,
+            background: "#7f1d1d",
+          }}
+        >
+          Borrar
+        </button>
+      </div>
+    </div>
+  ))}
+</div>
           )}
         </div>
       </div>
