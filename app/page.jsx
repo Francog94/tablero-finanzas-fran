@@ -658,12 +658,36 @@ if (!user) {
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>
-        <h1 style={{ fontSize: "32px", marginBottom: "8px" }}>
-          Tablero financiero Fran
-        </h1>
-        <p style={{ color: "#94a3b8", marginBottom: "24px" }}>
-          Control mensual conectado a Supabase.
-        </p>
+        <div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "16px",
+    flexWrap: "wrap",
+    marginBottom: "24px",
+  }}
+>
+  <div>
+    <h1 style={{ fontSize: "32px", marginBottom: "8px" }}>
+      Tablero financiero
+    </h1>
+    <p style={{ color: "#94a3b8", margin: 0 }}>
+      Sesión activa: {user?.email}
+    </p>
+  </div>
+
+  <button
+    style={{ ...buttonStyle, background: "#dc2626" }}
+    onClick={async () => {
+      await supabase.auth.signOut();
+      setUser(null);
+      setMovimientos([]);
+    }}
+  >
+    Cerrar sesión
+  </button>
+</div>
 
         <div
           style={{
