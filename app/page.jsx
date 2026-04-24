@@ -316,9 +316,10 @@ export default function Page() {
     .select();
 
   if (error) {
-    console.error("Error creando categoría:", error);
-    return;
-  }
+  console.error("Error creando categoría:", error);
+  alert("Error creando categoría: " + error.message);
+  return;
+}
 
   if (data?.[0]) {
     setCategorias((prev) =>
