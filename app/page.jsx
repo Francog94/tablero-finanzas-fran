@@ -596,6 +596,65 @@ const resumenTipo = [
     });
   }
 
+  // 👇 PEGÁS ACÁ ARRIBA
+if (!user) {
+  return (
+    <main style={pageStyle}>
+      <div style={containerStyle}>
+        <div style={cardStyle}>
+          <h1>Ingresar al tablero</h1>
+
+          <button
+            style={buttonStyle}
+            onClick={async () => {
+              const email = prompt("Email:");
+              const password = prompt("Password:");
+
+              const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+              });
+
+              if (error) {
+                alert("No se pudo iniciar sesión. Probá registrarte primero.");
+                return;
+              }
+
+              setUser(data.user);
+              cargarMovimientos(data.user.id);
+            }}
+          >
+            Iniciar sesión
+          </button>
+
+          <button
+            style={{ ...buttonStyle, marginLeft: "12px", background: "#15803d" }}
+            onClick={async () => {
+              const email = prompt("Email:");
+              const password = prompt("Password mínimo 6 caracteres:");
+
+              const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+              });
+
+              if (error) {
+                alert(error.message);
+                return;
+              }
+
+              setUser(data.user);
+              cargarMovimientos(data.user.id);
+            }}
+          >
+            Registrarme
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
+ 
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>
