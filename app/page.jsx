@@ -693,7 +693,7 @@ if (!user) {
         }
       }
     `}</style>
->
+
   <div>
     <h1 style={{ fontSize: "32px", marginBottom: "8px" }}>
       Tablero financiero
