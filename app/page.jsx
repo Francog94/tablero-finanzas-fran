@@ -676,19 +676,35 @@ export default function Page() {
 
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
 
-            <input
-              list="categorias-list"
-              placeholder="Categoría"
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              style={inputStyle}
-            />
+            <select
+  value={categoria}
+  onChange={(e) => {
+    const value = e.target.value;
 
-            <datalist id="categorias-list">
-              {categorias.map((cat) => (
-                <option key={cat.id} value={cat.nombre} />
-              ))}
-            </datalist>
+    if (value === "__nueva__") {
+      const nueva = prompt("Nombre de la nueva categoría:");
+
+      if (nueva && nueva.trim()) {
+        setCategoria(nueva.trim());
+      }
+
+      return;
+    }
+
+    setCategoria(value);
+  }}
+  style={inputStyle}
+>
+  <option value="">Categoría</option>
+
+  {categorias.map((cat) => (
+    <option key={cat.id} value={cat.nombre}>
+      {cat.nombre}
+    </option>
+  ))}
+
+  <option value="__nueva__">+ Nueva categoría</option>
+</select>
 
             <input
               placeholder="Descripción"
