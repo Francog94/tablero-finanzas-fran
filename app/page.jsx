@@ -321,12 +321,12 @@ export default function Page() {
     }
 
     if (data?.[0]) {
-      setCategorias((prev) =>
-        [...prev, data[0]].sort((a, b) => a.nombre.localeCompare(b.nombre))
-      );
-    }
-  }
-
+  setCategorias((prev) =>
+    [...prev, data[0]].sort((a, b) =>
+      a.nombre.localeCompare(b.nombre)
+    )
+  );
+}
   const setMesActual = () => {
     setMesSeleccionado(new Date().toISOString().slice(0, 7));
   };
@@ -460,14 +460,14 @@ export default function Page() {
     }
 
     if (data?.[0]) {
-      setMovimientos((prev) => [data[0], ...prev]);
-    }
+  setMovimientos((prev) => [data[0], ...prev]);
+}
 
-    await asegurarCategoria(categoriaLimpia);
+await asegurarCategoria(categoriaLimpia);
 
-    setCategoria("");
-    setDescripcion("");
-    setMonto("");
+setCategoria("");
+setDescripcion("");
+setMonto("");
   }
 
   async function borrarMovimiento(id) {
