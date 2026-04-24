@@ -301,31 +301,32 @@ export default function Page() {
   }
 
   async function asegurarCategoria(nombreCategoria) {
-    const nombreLimpio = nombreCategoria.trim();
-    if (!nombreLimpio || !user) return;
+  const nombreLimpio = nombreCategoria.trim();
+  if (!nombreLimpio || !user) return;
 
-    const existe = categorias.some(
-      (c) => c.nombre.toLowerCase() === nombreLimpio.toLowerCase()
-    );
-
-    if (existe) return;
-
-    const { data, error } = await supabase
-      .from("categorias")
-      .insert([{ nombre: nombreLimpio, user_id: user.id }])
-      .select();
-
-    if (error) {
-      console.error("Error creando categoría:", error);
-      return;
-    }
-
-    if (data?.[0]) {
-  setCategorias((prev) =>
-    [...prev, data[0]].sort((a, b) =>
-      a.nombre.localeCompare(b.nombre)
-    )
+  const existe = categorias.some(
+    (c) => c.nombre.toLowerCase() === nombreLimpio.toLowerCase()
   );
+
+  if (existe) return;
+
+  const { data, error } = await supabase
+    .from("categorias")
+    .insert([{ nombre: nombreLimpio, user_id: user.id }])
+    .select();
+
+  if (error) {
+    console.error("Error creando categoría:", error);
+    return;
+  }
+
+  if (data?.[0]) {
+    setCategorias((prev) =>
+      [...prev, data[0]].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre)
+      )
+    );
+  }
 }
   const setMesActual = () => {
     setMesSeleccionado(new Date().toISOString().slice(0, 7));
