@@ -343,9 +343,9 @@ export default function Page() {
   useEffect(() => {
   async function init() {
     const { data } = await supabase.auth.getUser();
-    setUser(data.user);
 
     if (data.user) {
+      setUser(data.user);
       cargarMovimientos(data.user.id);
     } else {
       setLoading(false);
@@ -353,6 +353,21 @@ export default function Page() {
   }
 
   init();
+
+  // 🔥 LISTENER de sesión (esto es el auto-login real)
+  const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (session?.user) {
+      setUser(session.user);
+      cargarMovimientos(session.user.id);
+    } else {
+      setUser(null);
+      setMovimientos([]);
+    }
+  });
+
+  return () => {
+    listener.subscription.unsubscribe();
+  };
 }, []);
 
   async function cargarMovimientos(userId) {
