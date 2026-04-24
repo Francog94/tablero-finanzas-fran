@@ -694,10 +694,21 @@ if (!user) {
       }
     `}</style>
 
+  <div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "16px",
+    flexWrap: "wrap",
+    marginBottom: "24px",
+  }}
+>
   <div>
     <h1 style={{ fontSize: "32px", marginBottom: "8px" }}>
       Tablero financiero
     </h1>
+
     <p style={{ color: "#94a3b8", margin: 0 }}>
       Sesión activa: {user?.email}
     </p>
