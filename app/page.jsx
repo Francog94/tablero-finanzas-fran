@@ -248,6 +248,15 @@ export default function Page() {
   const [importarResumenError, setImportarResumenError] = useState("");
   const [importarResumenSaving, setImportarResumenSaving] = useState(false);
   const [importarResumenSuccess, setImportarResumenSuccess] = useState("");
+  const [importarResumenUsarFechaPago, setImportarResumenUsarFechaPago] = useState(true);
+  const [importarResumenFechaPago, setImportarResumenFechaPago] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [categoriaGestionMsg, setCategoriaGestionMsg] = useState("");
+  const [categoriaGestionError, setCategoriaGestionError] = useState("");
+  const [categoriaEliminando, setCategoriaEliminando] = useState(null);
+  const [categoriaDestinoReasignacion, setCategoriaDestinoReasignacion] = useState("");
+  const [categoriaGestionLoading, setCategoriaGestionLoading] = useState(false);
   const [editData, setEditData] = useState({
     tipo: "Gasto",
     fecha: "",
@@ -258,13 +267,23 @@ export default function Page() {
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase.auth.getUser();
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error("Error obteniendo usuario:", error);
+          return;
+        }
 
-      if (data.user) {
-        setUser(data.user);
-        cargarMovimientos(data.user.id);
-        cargarCategorias(data.user.id);
-      } else {
+        if (data?.user) {
+          setUser(data.user);
+          await Promise.all([
+            cargarMovimientos(data.user.id),
+            cargarCategorias(data.user.id),
+          ]);
+        }
+      } catch (error) {
+        console.error("Error inicializando sesión:", error);
+      } finally {
         setLoading(false);
       }
     }
@@ -287,6 +306,16 @@ export default function Page() {
       listener.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!importarResumenUsarFechaPago || !importarResumenFechaPago) return;
+    setImportarResumenPreview((prev) =>
+      prev.map((fila) => ({
+        ...fila,
+        fecha: importarResumenFechaPago,
+      }))
+    );
+  }, [importarResumenUsarFechaPago, importarResumenFechaPago]);
 
   async function cargarMovimientos(userId) {
     setLoading(true);
@@ -352,7 +381,6 @@ export default function Page() {
       );
     }
   }
-
   const setMesActual = () => {
     setMesSeleccionado(new Date().toISOString().slice(0, 7));
   };
@@ -769,9 +797,17 @@ export default function Page() {
   }
 
   function parsearLineaImportarResumen(linea, indice) {
+    const usarFechaResumen = importarResumenUsarFechaPago && Boolean(importarResumenFechaPago);
+    const fechaResumen = importarResumenFechaPago;
     const base = parsearLineaCargaRapida(linea, indice);
-    if (base) return base;
+    if (base) {
+      return {
+        ...base,
+        fecha: usarFechaResumen ? fechaResumen : base.fecha,
+      };
+    }
 
+    // Fallback conservador para líneas con texto muy sucio.
     const texto = String(linea || "").replace(/\s+/g, " ").trim();
     if (!texto) return null;
 
@@ -795,7 +831,7 @@ export default function Page() {
 
     return {
       tempId: `resumen-${Date.now()}-${indice}`,
-      fecha: fechaDetectada,
+      fecha: usarFechaResumen ? fechaResumen : fechaDetectada,
       tipo: tipoDetectado,
       categoria: sugerirCategoria(descripcion, tipoDetectado),
       descripcion,
@@ -804,16 +840,21 @@ export default function Page() {
     };
   }
 
+  // Placeholder para futura carga por OCR de imagen.
   async function parsearDesdeImagen(_file) {
+    // TODO: integrar OCR y reutilizar parsearLineaCargaRapida/procesarCargaRapida.
     setCargaRapidaError("Carga por imagen disponible próximamente.");
     return [];
   }
 
+  // Placeholder para futura carga desde resumen PDF.
   async function parsearDesdePDF(_file) {
+    // TODO: integrar parser PDF y reutilizar parsearLineaCargaRapida/procesarCargaRapida.
     setCargaRapidaError("Carga por PDF disponible próximamente.");
     return [];
   }
 
+  // Referencia intencional: deja explícita la interfaz para futuros importadores.
   const futureImportParsers = { parsearDesdeImagen, parsearDesdePDF };
   void futureImportParsers;
 
@@ -914,6 +955,10 @@ export default function Page() {
   function procesarImportarResumen() {
     setImportarResumenError("");
     setImportarResumenSuccess("");
+    if (importarResumenUsarFechaPago && !importarResumenFechaPago) {
+      setImportarResumenError("Elegí la fecha de pago del resumen antes de procesar.");
+      return;
+    }
 
     const lineas = importarResumenTexto
       .split("\n")
@@ -938,6 +983,7 @@ export default function Page() {
   }
 
   function actualizarFilaImportarResumen(tempId, field, value) {
+    if (field === "fecha" && importarResumenUsarFechaPago) return;
     setImportarResumenPreview((prev) =>
       prev.map((fila) =>
         fila.tempId === tempId
@@ -992,7 +1038,7 @@ export default function Page() {
       setMovimientos((prev) =>
         [...data, ...prev].sort(
           (a, b) => b.fecha.localeCompare(a.fecha) || Number(b.id) - Number(a.id)
-        )
+                  )
       );
       const categoriasUnicas = [...new Set(payload.map((x) => x.categoria))];
       await Promise.all(categoriasUnicas.map((cat) => asegurarCategoria(cat)));
@@ -1003,6 +1049,117 @@ export default function Page() {
     setImportarResumenTexto("");
     setImportarResumenPreview([]);
     setImportarResumenSaving(false);
+  }
+
+  function formatearFecha(fechaIso) {
+    if (!fechaIso) return "--/--/----";
+    const [anio, mes, dia] = fechaIso.split("-");
+    if (!anio || !mes || !dia) return fechaIso;
+    return `${dia}/${mes}/${anio}`;
+  }
+
+  async function eliminarCategoriaSinMovimientos(cat) {
+    if (!user || !cat) return;
+    const confirmar = window.confirm(`¿Eliminar la categoría "${cat.nombre}"? Esta acción no se puede deshacer.`);
+    if (!confirmar) return;
+
+    setCategoriaGestionLoading(true);
+    setCategoriaGestionError("");
+    setCategoriaGestionMsg("");
+
+    const { error } = await supabase
+      .from("categorias")
+      .delete()
+      .eq("id", cat.id)
+      .eq("user_id", user.id);
+
+    if (error) {
+      setCategoriaGestionError(`No se pudo eliminar la categoría: ${error.message}`);
+      setCategoriaGestionLoading(false);
+      return;
+    }
+
+    setCategorias((prev) => prev.filter((c) => c.id !== cat.id));
+    if (categoria === cat.nombre) setCategoria("");
+    if (editData.categoria === cat.nombre) {
+      setEditData((prev) => ({ ...prev, categoria: "" }));
+    }
+    setCategoriaGestionMsg(`Categoría "${cat.nombre}" eliminada.`);
+    setCategoriaGestionLoading(false);
+  }
+
+  function intentarEliminarCategoria(cat) {
+    const movimientosAsociados = movimientos.filter((m) => m.categoria === cat.nombre).length;
+    setCategoriaGestionError("");
+    setCategoriaGestionMsg("");
+    if (movimientosAsociados === 0) {
+      eliminarCategoriaSinMovimientos(cat);
+      return;
+    }
+
+    setCategoriaEliminando({ ...cat, movimientosAsociados });
+    const primeraDisponible = categorias.find((c) => c.id !== cat.id);
+    setCategoriaDestinoReasignacion(primeraDisponible?.nombre || "");
+  }
+
+  async function confirmarReasignarYEliminarCategoria() {
+    if (!user || !categoriaEliminando) return;
+    if (!categoriaDestinoReasignacion) {
+      setCategoriaGestionError("Seleccioná una categoría de destino para mover los movimientos.");
+      return;
+    }
+    if (categoriaDestinoReasignacion === categoriaEliminando.nombre) {
+      setCategoriaGestionError("La categoría de destino debe ser distinta.");
+      return;
+    }
+
+    setCategoriaGestionLoading(true);
+    setCategoriaGestionError("");
+    setCategoriaGestionMsg("");
+
+    const { error: errorUpdate } = await supabase
+      .from("movimientos")
+      .update({ categoria: categoriaDestinoReasignacion })
+      .eq("user_id", user.id)
+      .eq("categoria", categoriaEliminando.nombre);
+
+    if (errorUpdate) {
+      setCategoriaGestionError(`No se pudieron reasignar los movimientos: ${errorUpdate.message}`);
+      setCategoriaGestionLoading(false);
+      return;
+    }
+
+    const { error: errorDelete } = await supabase
+      .from("categorias")
+      .delete()
+      .eq("id", categoriaEliminando.id)
+      .eq("user_id", user.id);
+
+    if (errorDelete) {
+      setCategoriaGestionError(`Se reasignaron movimientos, pero no se pudo eliminar la categoría: ${errorDelete.message}`);
+      setCategoriaGestionLoading(false);
+      return;
+    }
+
+    setMovimientos((prev) =>
+      prev.map((m) =>
+        m.categoria === categoriaEliminando.nombre
+          ? { ...m, categoria: categoriaDestinoReasignacion }
+          : m
+      )
+    );
+    setCategorias((prev) => prev.filter((c) => c.id !== categoriaEliminando.id));
+    if (categoria === categoriaEliminando.nombre) setCategoria(categoriaDestinoReasignacion);
+    if (editData.categoria === categoriaEliminando.nombre) {
+      setEditData((prev) => ({ ...prev, categoria: categoriaDestinoReasignacion }));
+    }
+
+    setCategoriaGestionMsg(
+      `Se movieron ${categoriaEliminando.movimientosAsociados} movimientos a "${categoriaDestinoReasignacion}" y se eliminó "${categoriaEliminando.nombre}".`
+    );
+    setCategoriaEliminando(null);
+    setCategoriaDestinoReasignacion("");
+    setCategoriaGestionLoading(false);
   }
 
   async function autenticar(modo) {
@@ -1022,26 +1179,33 @@ export default function Page() {
     }
 
     setAuthLoading(true);
+    try {
+      const authFn =
+        modo === "login" ? supabase.auth.signInWithPassword : supabase.auth.signUp;
+      const { data, error } = await authFn({ email, password });
 
-    const authFn =
-      modo === "login" ? supabase.auth.signInWithPassword : supabase.auth.signUp;
-    const { data, error } = await authFn({ email, password });
+      if (error) {
+        setAuthError(error.message || "No se pudo autenticar. Revisá tus datos.");
+        return;
+      }
 
-    if (error) {
-      setAuthError(error.message);
+      if (data?.user) {
+        setUser(data.user);
+        await Promise.all([
+          cargarMovimientos(data.user.id),
+          cargarCategorias(data.user.id),
+        ]);
+        setAuthEmail("");
+        setAuthPassword("");
+        return;
+      }
+
+      setAuthError("La autenticación se completó pero no devolvió usuario. Volvé a intentar.");
+    } catch (error) {
+      setAuthError(error?.message || "Ocurrió un error inesperado durante la autenticación.");
+    } finally {
       setAuthLoading(false);
-      return;
     }
-
-    if (data?.user) {
-      setUser(data.user);
-      cargarMovimientos(data.user.id);
-      cargarCategorias(data.user.id);
-      setAuthEmail("");
-      setAuthPassword("");
-    }
-
-    setAuthLoading(false);
   }
 
   if (!user) {
@@ -1220,34 +1384,34 @@ export default function Page() {
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
 
             <select
-              value={categoria}
-              onChange={(e) => {
-                const value = e.target.value;
+  value={categoria}
+  onChange={(e) => {
+    const value = e.target.value;
 
-                if (value === "__nueva__") {
-                  const nueva = prompt("Nombre de la nueva categoría:");
+    if (value === "__nueva__") {
+      const nueva = prompt("Nombre de la nueva categoría:");
 
-                  if (nueva && nueva.trim()) {
-                    setCategoria(nueva.trim());
-                  }
+      if (nueva && nueva.trim()) {
+        setCategoria(nueva.trim());
+      }
 
-                  return;
-                }
+      return;
+    }
 
-                setCategoria(value);
-              }}
-              style={inputStyle}
-            >
-              <option value="">Categoría</option>
+    setCategoria(value);
+  }}
+  style={inputStyle}
+>
+  <option value="">Categoría</option>
 
-              {categorias.map((cat) => (
-                <option key={cat.id} value={cat.nombre}>
-                  {cat.nombre}
-                </option>
-              ))}
+  {categorias.map((cat) => (
+    <option key={cat.id} value={cat.nombre}>
+      {cat.nombre}
+    </option>
+  ))}
 
-              <option value="__nueva__">+ Nueva categoría</option>
-            </select>
+  <option value="__nueva__">+ Nueva categoría</option>
+</select>
 
             <input
               placeholder="Descripción"
@@ -1270,6 +1434,51 @@ export default function Page() {
               {saving ? "Guardando..." : "Agregar"}
             </button>
           </div>
+        </div>
+
+        <div style={{ ...cardStyle, marginBottom: "24px" }}>
+          <h2 style={{ marginTop: 0 }}>Gestión de categorías</h2>
+          <p style={{ color: "#94a3b8", marginTop: 0 }}>
+            Podés eliminar categorías. Si tienen movimientos asociados, primero tenés que reasignarlos.
+          </p>
+          {categoriaGestionError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{categoriaGestionError}</p>}
+          {categoriaGestionMsg && <p style={{ color: "#86efac", marginTop: 0 }}>{categoriaGestionMsg}</p>}
+          {categorias.length === 0 ? (
+            <p style={{ color: "#94a3b8", marginBottom: 0 }}>No hay categorías creadas todavía.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {categorias.map((cat) => {
+                const cantidadMovs = movimientos.filter((m) => m.categoria === cat.nombre).length;
+                return (
+                  <div
+                    key={cat.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      border: "1px solid #334155",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                    }}
+                  >
+                    <div>
+                      <strong>{cat.nombre}</strong>
+                      <div style={{ color: "#94a3b8", fontSize: 13 }}>{cantidadMovs} movimientos</div>
+                    </div>
+                    <button
+                      onClick={() => intentarEliminarCategoria(cat)}
+                      style={{ ...buttonStyle, padding: "8px 10px", background: "#7f1d1d", boxShadow: "none" }}
+                      disabled={categoriaGestionLoading}
+                      title="Eliminar categoría"
+                    >
+                      🗑️ Eliminar categoría
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div style={{ ...cardStyle, marginBottom: "24px" }}>
@@ -1386,6 +1595,36 @@ export default function Page() {
           {importarResumenError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{importarResumenError}</p>}
           {importarResumenSuccess && <p style={{ color: "#86efac", marginTop: 0 }}>{importarResumenSuccess}</p>}
 
+          <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", color: "#cbd5e1" }}>
+              <input
+                type="checkbox"
+                checked={importarResumenUsarFechaPago}
+                onChange={(e) => setImportarResumenUsarFechaPago(e.target.checked)}
+              />
+              Usar fecha del resumen (recomendado)
+            </label>
+            <label style={{ color: "#cbd5e1", display: "grid", gap: 6 }}>
+              Fecha de pago del resumen
+              <input
+                type="date"
+                value={importarResumenFechaPago}
+                onChange={(e) => setImportarResumenFechaPago(e.target.value)}
+                style={inputStyle}
+                disabled={!importarResumenUsarFechaPago}
+              />
+            </label>
+            {importarResumenUsarFechaPago ? (
+              <p style={{ color: "#93c5fd", margin: 0 }}>
+                Los movimientos se guardarán con fecha: {formatearFecha(importarResumenFechaPago)}
+              </p>
+            ) : (
+              <p style={{ color: "#94a3b8", margin: 0 }}>
+                Se usará la fecha original detectada en cada línea del resumen.
+              </p>
+            )}
+          </div>
+
           <textarea
             value={importarResumenTexto}
             onChange={(e) => setImportarResumenTexto(e.target.value)}
@@ -1428,6 +1667,7 @@ export default function Page() {
                     value={fila.fecha}
                     onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "fecha", e.target.value)}
                     style={inputStyle}
+                    disabled={importarResumenUsarFechaPago}
                   />
                   <select
                     value={fila.tipo}
@@ -1471,6 +1711,64 @@ export default function Page() {
             </div>
           )}
         </div>
+
+        {categoriaEliminando && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(2, 6, 23, 0.78)",
+              display: "grid",
+              placeItems: "center",
+              zIndex: 50,
+              padding: 16,
+            }}
+          >
+            <div style={{ ...cardStyle, width: "100%", maxWidth: 560 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 8 }}>Esta categoría tiene movimientos asociados</h3>
+              <p style={{ color: "#cbd5e1", marginTop: 0 }}>
+                La categoría <strong>{categoriaEliminando.nombre}</strong> tiene{" "}
+                <strong>{categoriaEliminando.movimientosAsociados}</strong> movimientos.
+              </p>
+              <p style={{ color: "#cbd5e1", marginTop: 0 }}>
+                Seleccioná a qué categoría querés moverlos antes de eliminar.
+              </p>
+              <select
+                value={categoriaDestinoReasignacion}
+                onChange={(e) => setCategoriaDestinoReasignacion(e.target.value)}
+                style={inputStyle}
+              >
+                <option value="">Seleccioná categoría de destino</option>
+                {categorias
+                  .filter((c) => c.id !== categoriaEliminando.id)
+                  .map((cat) => (
+                    <option key={cat.id} value={cat.nombre}>
+                      {cat.nombre}
+                    </option>
+                  ))}
+              </select>
+              <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                <button
+                  onClick={confirmarReasignarYEliminarCategoria}
+                  style={{ ...buttonStyle, background: "#7f1d1d", boxShadow: "none" }}
+                  disabled={categoriaGestionLoading}
+                >
+                  {categoriaGestionLoading ? "Procesando..." : "Reasignar y eliminar categoría"}
+                </button>
+                <button
+                  onClick={() => {
+                    setCategoriaEliminando(null);
+                    setCategoriaDestinoReasignacion("");
+                  }}
+                  style={{ ...buttonStyle, background: "#475569", boxShadow: "none" }}
+                  disabled={categoriaGestionLoading}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div
           style={{
@@ -1592,102 +1890,102 @@ export default function Page() {
                   </thead>
                   <tbody>
                     {movimientosFiltrados.map((m) => (
-                      <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <input
-                              type="date"
-                              value={editData.fecha}
-                              onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
-                              style={inputStyle}
-                            />
-                          ) : (
-                            m.fecha
-                          )}
-                        </td>
+  <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          type="date"
+          value={editData.fecha}
+          onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        m.fecha
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <select
-                              value={editData.tipo}
-                              onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
-                              style={inputStyle}
-                            >
-                              <option value="Gasto">Gasto</option>
-                              <option value="Ingreso">Ingreso</option>
-                            </select>
-                          ) : (
-                            m.tipo
-                          )}
-                        </td>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <select
+          value={editData.tipo}
+          onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
+          style={inputStyle}
+        >
+          <option value="Gasto">Gasto</option>
+          <option value="Ingreso">Ingreso</option>
+        </select>
+      ) : (
+        m.tipo
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <select
-                              value={editData.categoria}
-                              onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
-                              style={inputStyle}
-                            >
-                              <option value="">Categoría</option>
-                              {categorias.map((cat) => (
-                                <option key={cat.id} value={cat.nombre}>
-                                  {cat.nombre}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            m.categoria
-                          )}
-                        </td>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <select
+          value={editData.categoria}
+          onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
+          style={inputStyle}
+        >
+          <option value="">Categoría</option>
+          {categorias.map((cat) => (
+            <option key={cat.id} value={cat.nombre}>
+              {cat.nombre}
+            </option>
+          ))}
+        </select>
+      ) : (
+        m.categoria
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <input
-                              value={editData.descripcion}
-                              onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
-                              style={inputStyle}
-                            />
-                          ) : (
-                            m.descripcion
-                          )}
-                        </td>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          value={editData.descripcion}
+          onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        m.descripcion
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <input
-                              type="number"
-                              value={editData.monto}
-                              onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
-                              style={inputStyle}
-                            />
-                          ) : (
-                            money(m.monto)
-                          )}
-                        </td>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          type="number"
+          value={editData.monto}
+          onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        money(m.monto)
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                              <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
-                                {saving ? "Guardando..." : "Guardar"}
-                              </button>
-                              <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : (
-                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                              <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
-                                Editar
-                              </button>
-                              <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
-                                Borrar
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
+            {saving ? "Guardando..." : "Guardar"}
+          </button>
+          <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
+            Editar
+          </button>
+          <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
+            Borrar
+          </button>
+        </div>
+      )}
+    </td>
+  </tr>
+))}
 
                     {movimientosFiltrados.length === 0 && (
                       <tr>
