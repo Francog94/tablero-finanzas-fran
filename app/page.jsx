@@ -225,6 +225,12 @@ export default function Page() {
   const [mesSeleccionado, setMesSeleccionado] = useState(new Date().toISOString().slice(0, 7));
 
   const [editandoId, setEditandoId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [editData, setEditData] = useState({
     tipo: "Gasto",
     fecha: "",
@@ -440,16 +446,28 @@ export default function Page() {
   }, [movimientosFiltrados, totalGastos, totalIngresos]);
 
   async function agregarMovimiento() {
-    if (!categoria || !descripcion || !monto || !user) return;
+    if (saving) return;
+    setErrorMsg("");
+    if (!categoria.trim() || !descripcion.trim() || !monto || !user) {
+      setErrorMsg("Completá categoría, descripción y monto para guardar el movimiento.");
+      return;
+    }
 
     const categoriaLimpia = categoria.trim();
+    const descripcionLimpia = descripcion.trim();
+    const montoNumero = Number(monto);
+    if (!Number.isFinite(montoNumero) || montoNumero <= 0) {
+      setErrorMsg("El monto debe ser un número mayor a 0.");
+      return;
+    }
+    setSaving(true);
 
     const nuevo = {
       tipo,
       fecha,
       categoria: categoriaLimpia,
-      descripcion,
-      monto: Number(monto),
+      descripcion: descripcionLimpia,
+      monto: montoNumero,
       user_id: user.id,
     };
 
@@ -458,6 +476,7 @@ export default function Page() {
     if (error) {
       console.error("Error guardando movimiento:", error);
       alert("Error guardando movimiento");
+      setSaving(false);
       return;
     }
 
@@ -470,10 +489,18 @@ await asegurarCategoria(categoriaLimpia);
 setCategoria("");
 setDescripcion("");
 setMonto("");
+setSaving(false);
   }
 
   async function borrarMovimiento(id) {
-    const { error } = await supabase.from("movimientos").delete().eq("id", id);
+    if (!user) return;
+    const confirmar = window.confirm("¿Seguro que querés borrar este movimiento?");
+    if (!confirmar) return;
+    const { error } = await supabase
+      .from("movimientos")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) {
       console.error("Error borrando movimiento:", error);
@@ -496,7 +523,21 @@ setMonto("");
   }
 
   async function guardarEdicion() {
+    if (!user) return;
+    if (saving) return;
+    setErrorMsg("");
     const categoriaLimpia = editData.categoria.trim();
+    const descripcionLimpia = editData.descripcion.trim();
+    const montoNumero = Number(editData.monto);
+    if (!categoriaLimpia || !descripcionLimpia || !editData.fecha) {
+      setErrorMsg("Completá todos los campos antes de guardar la edición.");
+      return;
+    }
+    if (!Number.isFinite(montoNumero) || montoNumero <= 0) {
+      setErrorMsg("El monto editado debe ser un número mayor a 0.");
+      return;
+    }
+    setSaving(true);
 
     const { error } = await supabase
       .from("movimientos")
@@ -504,14 +545,16 @@ setMonto("");
         tipo: editData.tipo,
         fecha: editData.fecha,
         categoria: categoriaLimpia,
-        descripcion: editData.descripcion,
-        monto: Number(editData.monto),
+        descripcion: descripcionLimpia,
+        monto: montoNumero,
       })
-      .eq("id", editandoId);
+      .eq("id", editandoId)
+      .eq("user_id", user.id);
 
     if (error) {
       console.error("Error editando movimiento:", error);
       alert("Error editando movimiento");
+      setSaving(false);
       return;
     }
 
@@ -523,8 +566,8 @@ setMonto("");
               tipo: editData.tipo,
               fecha: editData.fecha,
               categoria: categoriaLimpia,
-              descripcion: editData.descripcion,
-              monto: Number(editData.monto),
+              descripcion: descripcionLimpia,
+              monto: montoNumero,
             }
           : m
       )
@@ -534,6 +577,74 @@ setMonto("");
 
     setEditandoId(null);
     setEditData({ tipo: "Gasto", fecha: "", categoria: "", descripcion: "", monto: "" });
+    setSaving(false);
+  }
+
+  function exportarCsv() {
+    if (!movimientosFiltrados.length) return;
+    const filas = [
+      ["fecha", "tipo", "categoria", "descripcion", "monto"],
+      ...movimientosFiltrados.map((m) => [
+        m.fecha,
+        m.tipo,
+        m.categoria,
+        m.descripcion,
+        String(m.monto ?? 0),
+      ]),
+    ];
+    const csv = filas
+      .map((fila) =>
+        fila
+          .map((valor) => `"${String(valor ?? "").replaceAll('"', '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `movimientos-${mesSeleccionado || "todos"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function autenticar(modo) {
+    if (authLoading) return;
+    setAuthError("");
+    const email = authEmail.trim();
+    const password = authPassword;
+
+    if (!email || !password) {
+      setAuthError("Completá email y contraseña.");
+      return;
+    }
+
+    if (modo === "registro" && password.length < 6) {
+      setAuthError("La contraseña para registrarte debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    setAuthLoading(true);
+
+    const authFn =
+      modo === "login" ? supabase.auth.signInWithPassword : supabase.auth.signUp;
+    const { data, error } = await authFn({ email, password });
+
+    if (error) {
+      setAuthError(error.message);
+      setAuthLoading(false);
+      return;
+    }
+
+    if (data?.user) {
+      setUser(data.user);
+      cargarMovimientos(data.user.id);
+      cargarCategorias(data.user.id);
+      setAuthEmail("");
+      setAuthPassword("");
+    }
+
+    setAuthLoading(false);
   }
 
   if (!user) {
@@ -542,48 +653,42 @@ setMonto("");
         <div style={containerStyle}>
           <div style={cardStyle}>
             <h1>Ingresar al tablero</h1>
+            <p style={{ color: "#94a3b8", marginTop: 0 }}>
+              Accedé con tu usuario o creá una cuenta para empezar a cargar movimientos.
+            </p>
 
-            <button
-              style={buttonStyle}
-              onClick={async () => {
-                const email = prompt("Email:");
-                const password = prompt("Password:");
+            {authError && <p style={{ color: "#fca5a5" }}>{authError}</p>}
 
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            <div style={{ display: "grid", gap: "12px", maxWidth: "420px" }}>
+              <input
+                type="email"
+                placeholder="tu-email@dominio.com"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="password"
+                placeholder="Contraseña"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
 
-                if (error) {
-                  alert("No se pudo iniciar sesión. Probá registrarte primero.");
-                  return;
-                }
+            <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
+              <button style={buttonStyle} onClick={() => autenticar("login")} disabled={authLoading}>
+                {authLoading ? "Procesando..." : "Iniciar sesión"}
+              </button>
 
-                setUser(data.user);
-                cargarMovimientos(data.user.id);
-                cargarCategorias(data.user.id);
-              }}
-            >
-              Iniciar sesión
-            </button>
-
-            <button
-              style={{ ...buttonStyle, marginLeft: "12px", background: "#15803d" }}
-              onClick={async () => {
-                const email = prompt("Email:");
-                const password = prompt("Password mínimo 6 caracteres:");
-
-                const { data, error } = await supabase.auth.signUp({ email, password });
-
-                if (error) {
-                  alert(error.message);
-                  return;
-                }
-
-                setUser(data.user);
-                cargarMovimientos(data.user.id);
-                cargarCategorias(data.user.id);
-              }}
-            >
-              Registrarme
-            </button>
+              <button
+                style={{ ...buttonStyle, background: "#15803d" }}
+                onClick={() => autenticar("registro")}
+                disabled={authLoading}
+              >
+                {authLoading ? "Procesando..." : "Registrarme"}
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -663,6 +768,7 @@ setMonto("");
 
         <div style={{ ...cardStyle, marginBottom: "24px" }}>
           <h2 style={{ marginTop: 0 }}>Agregar movimiento</h2>
+          {errorMsg && <p style={{ color: "#fca5a5", marginTop: 0 }}>{errorMsg}</p>}
 
           <div
             style={{
@@ -725,8 +831,8 @@ setMonto("");
           </div>
 
           <div style={{ marginTop: "16px" }}>
-            <button onClick={agregarMovimiento} style={buttonStyle}>
-              Agregar
+            <button onClick={agregarMovimiento} style={buttonStyle} disabled={saving}>
+              {saving ? "Guardando..." : "Agregar"}
             </button>
           </div>
         </div>
@@ -826,6 +932,9 @@ setMonto("");
                 <button onClick={setMesActual} style={buttonStyle}>Este mes</button>
                 <button onClick={setMesAnterior} style={buttonStyle}>Mes pasado</button>
                 <button onClick={setTodos} style={buttonStyle}>Todos</button>
+                <button onClick={exportarCsv} style={{ ...buttonStyle, background: "#0f766e" }}>
+                  Exportar CSV
+                </button>
               </div>
             </div>
           </div>
@@ -925,7 +1034,7 @@ setMonto("");
       {editandoId === m.id ? (
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
-            Guardar
+            {saving ? "Guardando..." : "Guardar"}
           </button>
           <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
             Cancelar
