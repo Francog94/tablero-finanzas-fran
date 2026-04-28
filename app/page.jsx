@@ -1225,9 +1225,10 @@ export default function Page() {
 
     setAuthLoading(true);
     try {
-      const authFn =
-        modo === "login" ? supabase.auth.signInWithPassword : supabase.auth.signUp;
-      const { data, error } = await authFn({ email, password });
+      const { data, error } =
+        modo === "login"
+          ? await supabase.auth.signInWithPassword({ email, password })
+          : await supabase.auth.signUp({ email, password });
 
       if (error) {
         setAuthError(error.message || "No se pudo autenticar. Revisá tus datos.");
