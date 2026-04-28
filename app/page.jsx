@@ -18,22 +18,23 @@ function money(n) {
 
 const pageStyle = {
   minHeight: "100vh",
-  background: "#020617",
+  background: "radial-gradient(circle at top, #0f172a 0%, #020617 55%)",
   color: "#e2e8f0",
-  padding: "20px",
-  fontFamily: "Arial, sans-serif",
+  padding: "24px 16px 40px",
+  fontFamily: "Inter, Arial, sans-serif",
 };
 
 const containerStyle = {
-  maxWidth: "1200px",
+  maxWidth: "1240px",
   margin: "0 auto",
 };
 
 const cardStyle = {
-  background: "#111827",
-  border: "1px solid #334155",
-  borderRadius: "16px",
-  padding: "16px",
+  background: "linear-gradient(180deg, #111827 0%, #0b1220 100%)",
+  border: "1px solid #263244",
+  borderRadius: "18px",
+  padding: "18px",
+  boxShadow: "0 10px 30px rgba(2, 6, 23, 0.35)",
 };
 
 const labelStyle = {
@@ -43,28 +44,31 @@ const labelStyle = {
 };
 
 const valueStyle = {
-  fontSize: "28px",
+  fontSize: "30px",
   fontWeight: 700,
-  marginTop: "8px",
+  marginTop: "10px",
+  letterSpacing: "-0.02em",
 };
 
 const inputStyle = {
   width: "100%",
   padding: "12px",
-  borderRadius: "10px",
+  borderRadius: "12px",
   border: "1px solid #334155",
   background: "#0f172a",
   color: "#e2e8f0",
+  outline: "none",
 };
 
 const buttonStyle = {
   padding: "12px 16px",
-  borderRadius: "10px",
+  borderRadius: "12px",
   border: "none",
-  background: "#2563eb",
+  background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
   color: "white",
   cursor: "pointer",
   fontWeight: 700,
+  boxShadow: "0 8px 20px rgba(37, 99, 235, 0.28)",
 };
 
 const thtdStyle = {
@@ -696,10 +700,19 @@ setSaving(false);
   }
 
   return (
-    <main style={pageStyle}>
+    <main style={pageStyle} className="app-shell">
       <style>{`
         .desktop-table { display: block; }
         .mobile-cards { display: none; }
+        .app-shell button { transition: transform .15s ease, filter .2s ease, opacity .2s ease; }
+        .app-shell button:hover { filter: brightness(1.05); transform: translateY(-1px); }
+        .app-shell button:disabled { opacity: .65; cursor: not-allowed; transform: none; }
+        .app-shell input:focus,
+        .app-shell select:focus {
+          border-color: #3b82f6 !important;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, .25);
+        }
+        .desktop-table table tbody tr:hover { background: rgba(30, 41, 59, 0.45); }
         @media (max-width: 768px) {
           .desktop-table { display: none; }
           .mobile-cards { display: grid; gap: 14px; }
@@ -718,7 +731,7 @@ setSaving(false);
           }}
         >
           <div>
-            <h1 style={{ fontSize: "32px", marginBottom: "8px" }}>Tablero financiero</h1>
+            <h1 style={{ fontSize: "34px", marginBottom: "8px", letterSpacing: "-0.02em" }}>Tablero financiero</h1>
             <p style={{ color: "#94a3b8", margin: 0 }}>Sesión activa: {user?.email}</p>
           </div>
 
@@ -744,24 +757,24 @@ setSaving(false);
           }}
         >
           <div style={cardStyle}>
-            <h3 style={labelStyle}>Total gastos</h3>
+            <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Total gastos</h3>
             <div style={{ ...valueStyle, color: "#f87171" }}>{money(totalGastos)}</div>
           </div>
 
           <div style={cardStyle}>
-            <h3 style={labelStyle}>Total ingresos</h3>
+            <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Total ingresos</h3>
             <div style={{ ...valueStyle, color: "#34d399" }}>{money(totalIngresos)}</div>
           </div>
 
           <div style={cardStyle}>
-            <h3 style={labelStyle}>Neto</h3>
+            <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Neto</h3>
             <div style={{ ...valueStyle, color: neto >= 0 ? "#34d399" : "#f87171" }}>
               {money(neto)}
             </div>
           </div>
 
           <div style={cardStyle}>
-            <h3 style={labelStyle}>Movimientos</h3>
+            <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Movimientos</h3>
             <div style={valueStyle}>{movimientosFiltrados.length}</div>
           </div>
         </div>
