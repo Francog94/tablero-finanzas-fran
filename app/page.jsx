@@ -235,6 +235,10 @@ export default function Page() {
   const [authPassword, setAuthPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [cargaRapidaTexto, setCargaRapidaTexto] = useState("");
+  const [cargaRapidaPreview, setCargaRapidaPreview] = useState([]);
+  const [cargaRapidaError, setCargaRapidaError] = useState("");
+  const [cargaRapidaSaving, setCargaRapidaSaving] = useState(false);
   const [editData, setEditData] = useState({
     tipo: "Gasto",
     fecha: "",
@@ -612,6 +616,150 @@ setSaving(false);
     URL.revokeObjectURL(url);
   }
 
+  function normalizarMonto(textoMonto) {
+    const limpio = String(textoMonto || "")
+      .replace(/\s/g, "")
+      .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+      .replace(",", ".");
+    const numero = Number(limpio);
+    return Number.isFinite(numero) ? numero : NaN;
+  }
+
+  function sugerirCategoria(descripcion, tipoDetectado) {
+    const texto = (descripcion || "").toLowerCase();
+    if (texto.includes("peaje")) return "Transporte";
+    if (texto.includes("super") || texto.includes("mercado")) return "Supermercado";
+    if (texto.includes("luz") || texto.includes("gas") || texto.includes("agua")) return "Servicios";
+    if (tipoDetectado === "Ingreso") return "Ingreso";
+    const primera = (descripcion || "").trim().split(/\s+/)[0];
+    return primera ? primera[0].toUpperCase() + primera.slice(1) : "General";
+  }
+
+  function parsearLineaCargaRapida(linea, indice) {
+    const texto = linea.trim();
+    if (!texto) return null;
+    const partes = texto.split(/\s+/);
+    if (partes.length < 2) return null;
+
+    const ultimo = partes[partes.length - 1];
+    const monto = normalizarMonto(ultimo);
+    if (!Number.isFinite(monto) || monto <= 0) return null;
+
+    let cursor = 0;
+    let fechaDetectada = fecha;
+    const m = partes[0].match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/);
+    if (m) {
+      const dia = m[1].padStart(2, "0");
+      const mes = m[2].padStart(2, "0");
+      const anio = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : new Date().getFullYear();
+      fechaDetectada = `${anio}-${mes}-${dia}`;
+      cursor = 1;
+    }
+
+    const descripcion = partes.slice(cursor, -1).join(" ").trim();
+    if (!descripcion) return null;
+    const lower = descripcion.toLowerCase();
+    const tipoDetectado =
+      lower.includes("ingreso") || lower.includes("cobro") || lower.includes("sueldo")
+        ? "Ingreso"
+        : "Gasto";
+
+    return {
+      tempId: `${Date.now()}-${indice}`,
+      fecha: fechaDetectada,
+      tipo: tipoDetectado,
+      categoria: sugerirCategoria(descripcion, tipoDetectado),
+      descripcion,
+      monto,
+    };
+  }
+
+  function procesarCargaRapida() {
+    setCargaRapidaError("");
+    const lineas = cargaRapidaTexto
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (!lineas.length) {
+      setCargaRapidaError("Pegá al menos una línea para procesar.");
+      return;
+    }
+
+    const parseados = lineas
+      .map((linea, i) => parsearLineaCargaRapida(linea, i))
+      .filter(Boolean);
+
+    if (!parseados.length) {
+      setCargaRapidaError("No se pudieron detectar movimientos válidos. Revisá formato y montos.");
+      return;
+    }
+
+    setCargaRapidaPreview(parseados);
+  }
+
+  function actualizarFilaCargaRapida(tempId, field, value) {
+    setCargaRapidaPreview((prev) =>
+      prev.map((fila) =>
+        fila.tempId === tempId
+          ? {
+              ...fila,
+              [field]: field === "monto" ? Number(value) : value,
+            }
+          : fila
+      )
+    );
+  }
+
+  async function confirmarCargaRapida() {
+    if (!user || !cargaRapidaPreview.length || cargaRapidaSaving) return;
+    setCargaRapidaError("");
+
+    const validas = cargaRapidaPreview.filter(
+      (r) =>
+        r.fecha &&
+        r.tipo &&
+        r.categoria?.trim() &&
+        r.descripcion?.trim() &&
+        Number.isFinite(Number(r.monto)) &&
+        Number(r.monto) > 0
+    );
+
+    if (validas.length !== cargaRapidaPreview.length) {
+      setCargaRapidaError("Hay filas inválidas en la previsualización. Corregilas antes de guardar.");
+      return;
+    }
+
+    setCargaRapidaSaving(true);
+    const payload = validas.map((r) => ({
+      fecha: r.fecha,
+      tipo: r.tipo,
+      categoria: r.categoria.trim(),
+      descripcion: r.descripcion.trim(),
+      monto: Number(r.monto),
+      user_id: user.id,
+    }));
+
+    const { data, error } = await supabase.from("movimientos").insert(payload).select();
+    if (error) {
+      setCargaRapidaError(`No se pudo guardar: ${error.message}`);
+      setCargaRapidaSaving(false);
+      return;
+    }
+
+    if (data?.length) {
+      setMovimientos((prev) => [...data, ...prev]);
+      const categoriasUnicas = [...new Set(payload.map((x) => x.categoria))];
+      for (const cat of categoriasUnicas) {
+        // preparado para futura carga por OCR/imagen/PDF reutilizando el mismo guardado.
+        await asegurarCategoria(cat);
+      }
+    }
+
+    setCargaRapidaTexto("");
+    setCargaRapidaPreview([]);
+    setCargaRapidaSaving(false);
+  }
+
   async function autenticar(modo) {
     if (authLoading) return;
     setAuthError("");
@@ -848,6 +996,96 @@ setSaving(false);
               {saving ? "Guardando..." : "Agregar"}
             </button>
           </div>
+        </div>
+
+        <div style={{ ...cardStyle, marginBottom: "24px" }}>
+          <h2 style={{ marginTop: 0 }}>Carga rápida</h2>
+          <p style={{ color: "#94a3b8", marginTop: 0 }}>
+            Pegá texto libre (una línea por movimiento). Próximamente se podrá sumar OCR desde imagen/PDF.
+          </p>
+          {cargaRapidaError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{cargaRapidaError}</p>}
+
+          <textarea
+            value={cargaRapidaTexto}
+            onChange={(e) => setCargaRapidaTexto(e.target.value)}
+            placeholder={`16/04 Peaje 4177.19\n16/04 Peaje 994.15\nMeli+ 3490\nLimpieza Laura 50000`}
+            style={{ ...inputStyle, minHeight: 130, resize: "vertical", fontFamily: "inherit" }}
+          />
+
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={procesarCargaRapida} style={buttonStyle}>
+              Procesar
+            </button>
+            <button
+              onClick={() => setCargaRapidaPreview([])}
+              style={{ ...buttonStyle, background: "#475569", boxShadow: "none" }}
+            >
+              Limpiar previsualización
+            </button>
+          </div>
+
+          {cargaRapidaPreview.length > 0 && (
+            <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+              <h3 style={{ margin: 0 }}>Previsualización editable ({cargaRapidaPreview.length})</h3>
+              {cargaRapidaPreview.map((fila) => (
+                <div
+                  key={fila.tempId}
+                  style={{
+                    border: "1px solid #334155",
+                    borderRadius: 12,
+                    padding: 12,
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    gap: 8,
+                  }}
+                >
+                  <input
+                    type="date"
+                    value={fila.fecha}
+                    onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "fecha", e.target.value)}
+                    style={inputStyle}
+                  />
+                  <select
+                    value={fila.tipo}
+                    onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "tipo", e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="Gasto">Gasto</option>
+                    <option value="Ingreso">Ingreso</option>
+                  </select>
+                  <input
+                    value={fila.categoria}
+                    onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "categoria", e.target.value)}
+                    style={inputStyle}
+                    placeholder="Categoría"
+                  />
+                  <input
+                    value={fila.descripcion}
+                    onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "descripcion", e.target.value)}
+                    style={inputStyle}
+                    placeholder="Descripción"
+                  />
+                  <input
+                    type="number"
+                    value={fila.monto}
+                    onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "monto", e.target.value)}
+                    style={inputStyle}
+                    placeholder="Monto"
+                  />
+                </div>
+              ))}
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  onClick={confirmarCargaRapida}
+                  style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)" }}
+                  disabled={cargaRapidaSaving}
+                >
+                  {cargaRapidaSaving ? "Guardando..." : "Confirmar y guardar"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div
