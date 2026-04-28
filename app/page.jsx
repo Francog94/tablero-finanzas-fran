@@ -3,10 +3,43 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+function getSupabaseConfigError(url, anonKey) {
+  if (!url || !anonKey) {
+    return "Falta configurar NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY en el entorno de build de Vercel.";
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") {
+      return "NEXT_PUBLIC_SUPABASE_URL debe comenzar con https://";
+    }
+  } catch (_error) {
+    return "NEXT_PUBLIC_SUPABASE_URL no tiene un formato válido de URL.";
+  }
+
+  if (!anonKey || anonKey.trim().length < 20) {
+    return "NEXT_PUBLIC_SUPABASE_ANON_KEY parece inválida. Verificá que sea la clave anon pública correcta del proyecto.";
+  }
+
+  return "";
+}
+
+const supabaseConfigError = getSupabaseConfigError(supabaseUrl, supabaseAnonKey);
+let supabaseInitError = "";
+let supabase = null;
+
+if (!supabaseConfigError) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+  } catch (error) {
+    supabaseInitError =
+      error?.message || "No se pudo inicializar el cliente de Supabase.";
+    console.error("Error creando cliente Supabase:", error);
+  }
+}
 
 function money(n) {
   return new Intl.NumberFormat("es-AR", {
@@ -257,6 +290,7 @@ export default function Page() {
   const [categoriaEliminando, setCategoriaEliminando] = useState(null);
   const [categoriaDestinoReasignacion, setCategoriaDestinoReasignacion] = useState("");
   const [categoriaGestionLoading, setCategoriaGestionLoading] = useState(false);
+  const supabaseRuntimeError = supabaseConfigError || supabaseInitError;
   const [editData, setEditData] = useState({
     tipo: "Gasto",
     fecha: "",
@@ -266,6 +300,11 @@ export default function Page() {
   });
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     async function init() {
       try {
         const { data, error } = await supabase.auth.getUser();
@@ -1165,6 +1204,12 @@ export default function Page() {
   async function autenticar(modo) {
     if (authLoading) return;
     setAuthError("");
+    if (!supabase) {
+      setAuthError(
+        supabaseRuntimeError || "Supabase no está disponible. Revisá la configuración del entorno."
+      );
+      return;
+    }
     const email = authEmail.trim();
     const password = authPassword;
 
@@ -1202,7 +1247,11 @@ export default function Page() {
 
       setAuthError("La autenticación se completó pero no devolvió usuario. Volvé a intentar.");
     } catch (error) {
-      setAuthError(error?.message || "Ocurrió un error inesperado durante la autenticación.");
+      const message =
+        error?.message ||
+        "Ocurrió un error inesperado durante la autenticación.";
+      setAuthError(message);
+      console.error("Error en autenticar:", error);
     } finally {
       setAuthLoading(false);
     }
@@ -1233,6 +1282,24 @@ export default function Page() {
               Accedé con tu usuario o creá una cuenta para empezar a cargar movimientos.
             </p>
 
+            {supabaseRuntimeError && (
+              <div
+                style={{
+                  border: "1px solid #7f1d1d",
+                  background: "rgba(127, 29, 29, 0.2)",
+                  color: "#fecaca",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  marginBottom: 12,
+                }}
+              >
+                <strong>Error de configuración de Supabase:</strong> {supabaseRuntimeError}
+                <br />
+                Verificá URL del proyecto, clave anon y que las variables estén cargadas en Vercel para
+                Production (y redeploy).
+              </div>
+            )}
+
             {authError && <p style={{ color: "#fca5a5" }}>{authError}</p>}
 
             <div style={{ display: "grid", gap: "12px", maxWidth: "420px" }}>
@@ -1253,14 +1320,18 @@ export default function Page() {
             </div>
 
             <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
-              <button style={buttonStyle} onClick={() => autenticar("login")} disabled={authLoading}>
+              <button
+                style={buttonStyle}
+                onClick={() => autenticar("login")}
+                disabled={authLoading || Boolean(supabaseRuntimeError)}
+              >
                 {authLoading ? "Procesando..." : "Iniciar sesión"}
               </button>
 
               <button
                 style={{ ...buttonStyle, background: "#15803d" }}
                 onClick={() => autenticar("registro")}
-                disabled={authLoading}
+                disabled={authLoading || Boolean(supabaseRuntimeError)}
               >
                 {authLoading ? "Procesando..." : "Registrarme"}
               </button>
