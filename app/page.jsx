@@ -17,14 +17,17 @@ function money(n) {
 }
 
 const pageStyle = {
-  minHeight: "100vh",
+  minHeight: "100dvh",
+  width: "100%",
   background: "radial-gradient(circle at top, #0f172a 0%, #020617 55%)",
   color: "#e2e8f0",
-  padding: "24px 16px 40px",
+  padding: "max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom))",
   fontFamily: "Inter, Arial, sans-serif",
+  overflowX: "hidden",
 };
 
 const containerStyle = {
+  width: "100%",
   maxWidth: "1240px",
   margin: "0 auto",
 };
@@ -801,8 +804,23 @@ setSaving(false);
 
   if (!user) {
     return (
-      <main style={pageStyle}>
-        <div style={containerStyle}>
+      <main style={pageStyle} className="app-shell">
+        <style>{`
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: #020617;
+            overflow-x: hidden;
+          }
+          body { min-height: 100dvh; width: 100%; }
+          *, *::before, *::after { box-sizing: border-box; }
+          .app-container { width: 100%; max-width: 1240px; margin: 0 auto; }
+          @media (max-width: 768px) {
+            .app-shell { padding: max(10px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom)); }
+            .app-container { max-width: none; margin: 0; }
+          }
+        `}</style>
+        <div style={containerStyle} className="app-container">
           <div style={cardStyle}>
             <h1>Ingresar al tablero</h1>
             <p style={{ color: "#94a3b8", marginTop: 0 }}>
@@ -850,6 +868,18 @@ setSaving(false);
   return (
     <main style={pageStyle} className="app-shell">
       <style>{`
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: #020617;
+          overflow-x: hidden;
+        }
+        body {
+          min-height: 100dvh;
+          width: 100%;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        .app-container { width: 100%; max-width: 1240px; margin: 0 auto; }
         .desktop-table { display: block; }
         .mobile-cards { display: none; }
         .app-shell button { transition: transform .15s ease, filter .2s ease, opacity .2s ease; }
@@ -864,10 +894,12 @@ setSaving(false);
         @media (max-width: 768px) {
           .desktop-table { display: none; }
           .mobile-cards { display: grid; gap: 14px; }
+          .app-shell { padding: max(10px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom)); }
+          .app-container { max-width: none; margin: 0; }
         }
       `}</style>
 
-      <div style={containerStyle}>
+      <div style={containerStyle} className="app-container">
         <div
           style={{
             display: "flex",
