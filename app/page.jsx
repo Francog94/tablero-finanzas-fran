@@ -352,6 +352,7 @@ export default function Page() {
       );
     }
   }
+
   const setMesActual = () => {
     setMesSeleccionado(new Date().toISOString().slice(0, 7));
   };
@@ -771,7 +772,6 @@ export default function Page() {
     const base = parsearLineaCargaRapida(linea, indice);
     if (base) return base;
 
-    // Fallback conservador para líneas con texto muy sucio.
     const texto = String(linea || "").replace(/\s+/g, " ").trim();
     if (!texto) return null;
 
@@ -804,21 +804,16 @@ export default function Page() {
     };
   }
 
-  // Placeholder para futura carga por OCR de imagen.
   async function parsearDesdeImagen(_file) {
-    // TODO: integrar OCR y reutilizar parsearLineaCargaRapida/procesarCargaRapida.
     setCargaRapidaError("Carga por imagen disponible próximamente.");
     return [];
   }
 
-  // Placeholder para futura carga desde resumen PDF.
   async function parsearDesdePDF(_file) {
-    // TODO: integrar parser PDF y reutilizar parsearLineaCargaRapida/procesarCargaRapida.
     setCargaRapidaError("Carga por PDF disponible próximamente.");
     return [];
   }
 
-  // Referencia intencional: deja explícita la interfaz para futuros importadores.
   const futureImportParsers = { parsearDesdeImagen, parsearDesdePDF };
   void futureImportParsers;
 
@@ -898,7 +893,8 @@ export default function Page() {
       setCargaRapidaSaving(false);
       return;
     }
-        if (data?.length) {
+
+    if (data?.length) {
       setMovimientos((prev) =>
         [...data, ...prev].sort(
           (a, b) => b.fecha.localeCompare(a.fecha) || Number(b.id) - Number(a.id)
@@ -1224,34 +1220,34 @@ export default function Page() {
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
 
             <select
-  value={categoria}
-  onChange={(e) => {
-    const value = e.target.value;
+              value={categoria}
+              onChange={(e) => {
+                const value = e.target.value;
 
-    if (value === "__nueva__") {
-      const nueva = prompt("Nombre de la nueva categoría:");
+                if (value === "__nueva__") {
+                  const nueva = prompt("Nombre de la nueva categoría:");
 
-      if (nueva && nueva.trim()) {
-        setCategoria(nueva.trim());
-      }
+                  if (nueva && nueva.trim()) {
+                    setCategoria(nueva.trim());
+                  }
 
-      return;
-    }
+                  return;
+                }
 
-    setCategoria(value);
-  }}
-  style={inputStyle}
->
-  <option value="">Categoría</option>
+                setCategoria(value);
+              }}
+              style={inputStyle}
+            >
+              <option value="">Categoría</option>
 
-  {categorias.map((cat) => (
-    <option key={cat.id} value={cat.nombre}>
-      {cat.nombre}
-    </option>
-  ))}
+              {categorias.map((cat) => (
+                <option key={cat.id} value={cat.nombre}>
+                  {cat.nombre}
+                </option>
+              ))}
 
-  <option value="__nueva__">+ Nueva categoría</option>
-</select>
+              <option value="__nueva__">+ Nueva categoría</option>
+            </select>
 
             <input
               placeholder="Descripción"
@@ -1279,7 +1275,7 @@ export default function Page() {
         <div style={{ ...cardStyle, marginBottom: "24px" }}>
           <h2 style={{ marginTop: 0 }}>Carga rápida</h2>
           <p style={{ color: "#94a3b8", marginTop: 0 }}>
-            Pegá texto libre (una línea por movimiento). Próximamente se podrá sumar OCR desde imagen/PDF.
+            Pegá texto libre, una línea por movimiento. Podés incluir fecha y monto en formatos simples.
           </p>
           {cargaRapidaError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{cargaRapidaError}</p>}
           {cargaRapidaSuccess && <p style={{ color: "#86efac", marginTop: 0 }}>{cargaRapidaSuccess}</p>}
@@ -1287,9 +1283,12 @@ export default function Page() {
           <textarea
             value={cargaRapidaTexto}
             onChange={(e) => setCargaRapidaTexto(e.target.value)}
-            placeholder={`16/04 Peaje 4177.19\n16/04 Peaje 994.15\nMeli+ 3490\nLimpieza Laura 50000`}
+            placeholder={`hoy supermercado 12500\nayer combustible 30000\n16/04 peaje 4177,19\nsueldo abril 2800000`}
             style={{ ...inputStyle, minHeight: 130, resize: "vertical", fontFamily: "inherit" }}
           />
+          <p style={{ color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>
+            Revisá la previsualización antes de guardar. Nada se carga automáticamente.
+          </p>
 
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button onClick={procesarCargaRapida} style={buttonStyle}>
@@ -1382,7 +1381,7 @@ export default function Page() {
         <div style={{ ...cardStyle, marginBottom: "24px" }}>
           <h2 style={{ marginTop: 0 }}>Importar resumen</h2>
           <p style={{ color: "#94a3b8", marginTop: 0 }}>
-            Pegá movimientos copiados desde resumen de tarjeta, banco o MercadoPago (sin OCR todavía).
+            Pegá movimientos copiados desde banco, tarjeta o billetera virtual para procesarlos en bloque.
           </p>
           {importarResumenError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{importarResumenError}</p>}
           {importarResumenSuccess && <p style={{ color: "#86efac", marginTop: 0 }}>{importarResumenSuccess}</p>}
@@ -1390,9 +1389,12 @@ export default function Page() {
           <textarea
             value={importarResumenTexto}
             onChange={(e) => setImportarResumenTexto(e.target.value)}
-            placeholder={`16/04/2026 MERCADOPAGO 19.000,00\n17/04/2026 YPF SERVICLUB 35.500,50\n18/04 COTO SUCURSAL 84.200\nMELI+ 3.490\nPAGO TRANSFERENCIA LAURA 50.000`}
+            placeholder={`16/04/2026 SUPERMERCADO 84.200,00\n17/04/2026 COMBUSTIBLE 35.500,50\n18/04/2026 SUSCRIPCION 3.490,00\n19/04/2026 TRANSFERENCIA RECIBIDA 50.000,00`}
             style={{ ...inputStyle, minHeight: 130, resize: "vertical", fontFamily: "inherit" }}
           />
+          <p style={{ color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>
+            Revisá la previsualización antes de guardar. Nada se carga automáticamente.
+          </p>
 
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button onClick={procesarImportarResumen} style={buttonStyle}>
@@ -1590,102 +1592,102 @@ export default function Page() {
                   </thead>
                   <tbody>
                     {movimientosFiltrados.map((m) => (
-  <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <input
-          type="date"
-          value={editData.fecha}
-          onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
-          style={inputStyle}
-        />
-      ) : (
-        m.fecha
-      )}
-    </td>
+                      <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <input
+                              type="date"
+                              value={editData.fecha}
+                              onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
+                              style={inputStyle}
+                            />
+                          ) : (
+                            m.fecha
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <select
-          value={editData.tipo}
-          onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
-          style={inputStyle}
-        >
-          <option value="Gasto">Gasto</option>
-          <option value="Ingreso">Ingreso</option>
-        </select>
-      ) : (
-        m.tipo
-      )}
-    </td>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <select
+                              value={editData.tipo}
+                              onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
+                              style={inputStyle}
+                            >
+                              <option value="Gasto">Gasto</option>
+                              <option value="Ingreso">Ingreso</option>
+                            </select>
+                          ) : (
+                            m.tipo
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <select
-          value={editData.categoria}
-          onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
-          style={inputStyle}
-        >
-          <option value="">Categoría</option>
-          {categorias.map((cat) => (
-            <option key={cat.id} value={cat.nombre}>
-              {cat.nombre}
-            </option>
-          ))}
-        </select>
-      ) : (
-        m.categoria
-      )}
-    </td>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <select
+                              value={editData.categoria}
+                              onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
+                              style={inputStyle}
+                            >
+                              <option value="">Categoría</option>
+                              {categorias.map((cat) => (
+                                <option key={cat.id} value={cat.nombre}>
+                                  {cat.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            m.categoria
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <input
-          value={editData.descripcion}
-          onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
-          style={inputStyle}
-        />
-      ) : (
-        m.descripcion
-      )}
-    </td>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <input
+                              value={editData.descripcion}
+                              onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
+                              style={inputStyle}
+                            />
+                          ) : (
+                            m.descripcion
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <input
-          type="number"
-          value={editData.monto}
-          onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
-          style={inputStyle}
-        />
-      ) : (
-        money(m.monto)
-      )}
-    </td>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <input
+                              type="number"
+                              value={editData.monto}
+                              onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
+                              style={inputStyle}
+                            />
+                          ) : (
+                            money(m.monto)
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
-            {saving ? "Guardando..." : "Guardar"}
-          </button>
-          <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
-            Cancelar
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
-            Editar
-          </button>
-          <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
-            Borrar
-          </button>
-        </div>
-      )}
-    </td>
-  </tr>
-))}
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
+                                {saving ? "Guardando..." : "Guardar"}
+                              </button>
+                              <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
+                                Editar
+                              </button>
+                              <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
+                                Borrar
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
 
                     {movimientosFiltrados.length === 0 && (
                       <tr>
