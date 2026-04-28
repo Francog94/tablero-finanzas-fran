@@ -1071,26 +1071,83 @@ setSaving(false);
                     key={m.id}
                     style={{ ...cardStyle, padding: "16px", display: "flex", flexDirection: "column", gap: "8px" }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <strong>{m.categoria}</strong>
-                      <span style={{ color: "#94a3b8" }}>{m.tipo}</span>
-                    </div>
+                    {editandoId === m.id ? (
+                      <>
+                        <input
+                          type="date"
+                          value={editData.fecha}
+                          onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
+                          style={inputStyle}
+                        />
 
-                    <div style={{ color: "#94a3b8" }}>{m.descripcion}</div>
+                        <select
+                          value={editData.tipo}
+                          onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="Gasto">Gasto</option>
+                          <option value="Ingreso">Ingreso</option>
+                        </select>
 
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span>{m.fecha}</span>
-                      <strong>{money(m.monto)}</strong>
-                    </div>
+                        <select
+                          value={editData.categoria}
+                          onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
+                          style={inputStyle}
+                        >
+                          <option value="">Categoría</option>
+                          {categorias.map((cat) => (
+                            <option key={cat.id} value={cat.nombre}>
+                              {cat.nombre}
+                            </option>
+                          ))}
+                        </select>
 
-                    <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                      <button onClick={() => iniciarEdicion(m)} style={buttonStyle}>
-                        Editar
-                      </button>
-                      <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
-                        Borrar
-                      </button>
-                    </div>
+                        <input
+                          value={editData.descripcion}
+                          onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
+                          style={inputStyle}
+                        />
+
+                        <input
+                          type="number"
+                          value={editData.monto}
+                          onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
+                          style={inputStyle}
+                        />
+
+                        <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                          <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
+                            {saving ? "Guardando..." : "Guardar"}
+                          </button>
+                          <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <strong>{m.categoria}</strong>
+                          <span style={{ color: "#94a3b8" }}>{m.tipo}</span>
+                        </div>
+
+                        <div style={{ color: "#94a3b8" }}>{m.descripcion}</div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span>{m.fecha}</span>
+                          <strong>{money(m.monto)}</strong>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                          <button onClick={() => iniciarEdicion(m)} style={buttonStyle}>
+                            Editar
+                          </button>
+                          <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
+                            Borrar
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
