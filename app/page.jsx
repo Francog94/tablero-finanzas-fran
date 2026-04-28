@@ -33,7 +33,11 @@ let supabase = null;
 
 if (!supabaseConfigError) {
   try {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        fetch: (...args) => fetch(...args),
+      },
+    });
   } catch (error) {
     supabaseInitError =
       error?.message || "No se pudo inicializar el cliente de Supabase.";
@@ -709,6 +713,8 @@ export default function Page() {
 
   function sugerirCategoria(descripcion, tipoDetectado) {
     const texto = (descripcion || "").toLowerCase();
+    const esTokenFecha = (token) =>
+      /^\d{1,2}[-/](?:[A-Za-z]{3}|\d{1,2})[-/]\d{2,4}$/.test(String(token || "").trim());
     if (texto.includes("nafta") || texto.includes("combustible") || texto.includes("ypf") || texto.includes("shell") || texto.includes("axion")) return "Combustible";
     if (texto.includes("peaje")) return "Transporte";
     if (texto.includes("super") || texto.includes("supermercado") || texto.includes("carrefour") || texto.includes("coto") || texto.includes("día") || texto.includes("changomas")) return "Supermercado";
@@ -720,14 +726,33 @@ export default function Page() {
     if (texto.includes("transferencia") || texto.includes("pago")) return "Transferencias";
     if (texto.includes("luz") || texto.includes("gas") || texto.includes("agua")) return "Servicios";
     if (tipoDetectado === "Ingreso") return "Ingreso";
-    const primera = (descripcion || "").trim().split(/\s+/)[0];
-    return primera ? primera[0].toUpperCase() + primera.slice(1) : "General";
+    const tokens = (descripcion || "").trim().split(/\s+/).filter(Boolean);
+    const primera = esTokenFecha(tokens[0]) ? tokens[1] : tokens[0];
+        return primera ? primera[0].toUpperCase() + primera.slice(1) : "General";
   }
 
   function extraerFechaDesdeTexto(lineaOriginal) {
     let linea = lineaOriginal.trim();
     const hoy = new Date();
     const lower = linea.toLowerCase();
+    const meses = {
+      jan: "01",
+      ene: "01",
+      feb: "02",
+      mar: "03",
+      apr: "04",
+      abr: "04",
+      may: "05",
+      jun: "06",
+      jul: "07",
+      aug: "08",
+      ago: "08",
+      sep: "09",
+      oct: "10",
+      nov: "11",
+      dec: "12",
+      dic: "12",
+    };
 
     if (lower.startsWith("hoy")) {
       return {
@@ -744,8 +769,37 @@ export default function Page() {
       };
     }
 
+    const matchMesTexto = linea.match(
+      /\b(\d{1,2})-(jan|ene|feb|mar|apr|abr|may|jun|jul|aug|ago|sep|oct|nov|dec|dic)-(\d{2,4})\b/i
+    );
+    if (matchMesTexto) {
+      const dia = matchMesTexto[1].padStart(2, "0");
+      const mesClave = matchMesTexto[2].toLowerCase();
+      const mes = meses[mesClave];
+      const anioRaw = matchMesTexto[3];
+      const anio =
+        anioRaw.length === 2
+          ? Number(anioRaw) < 50
+            ? `20${anioRaw}`
+            : `19${anioRaw}`
+          : anioRaw;
+
+      if (mes) {
+        linea = linea.replace(matchMesTexto[0], "").trim();
+        return {
+          fechaDetectada: `${anio}-${mes}-${dia}`,
+          textoSinFecha: linea,
+        };
+      }
+    }
+
     const match = linea.match(/(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?/);
-    if (!match) return { fechaDetectada: fecha, textoSinFecha: linea };
+    if (!match) {
+      return {
+        fechaDetectada: new Date().toISOString().slice(0, 10),
+        textoSinFecha: linea,
+      };
+    }
 
     const dia = match[1].padStart(2, "0");
     const mes = match[2].padStart(2, "0");
@@ -1448,7 +1502,7 @@ export default function Page() {
               gap: "12px",
             }}
           >
-            <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
+                        <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
               <option value="Gasto">Gasto</option>
               <option value="Ingreso">Ingreso</option>
             </select>
