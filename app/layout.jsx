@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Tablero financiero Fran",
-  description: "Control de gastos e inversiones",
+  title: "Control total | Control de gastos",
+  description: "Gestioná tus ingresos y gastos de forma inteligente",
 };
 
 export default function RootLayout({ children }) {
