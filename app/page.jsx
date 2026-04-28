@@ -242,6 +242,7 @@ export default function Page() {
   const [cargaRapidaPreview, setCargaRapidaPreview] = useState([]);
   const [cargaRapidaError, setCargaRapidaError] = useState("");
   const [cargaRapidaSaving, setCargaRapidaSaving] = useState(false);
+  const [cargaRapidaSuccess, setCargaRapidaSuccess] = useState("");
   const [editData, setEditData] = useState({
     tipo: "Gasto",
     fecha: "",
@@ -318,34 +319,34 @@ export default function Page() {
   }
 
   async function asegurarCategoria(nombreCategoria) {
-  const nombreLimpio = nombreCategoria.trim();
-  if (!nombreLimpio || !user) return;
+    const nombreLimpio = nombreCategoria.trim();
+    if (!nombreLimpio || !user) return;
 
-  const existe = categorias.some(
-    (c) => c.nombre.toLowerCase() === nombreLimpio.toLowerCase()
-  );
-
-  if (existe) return;
-
-  const { data, error } = await supabase
-    .from("categorias")
-    .insert([{ nombre: nombreLimpio, user_id: user.id }])
-    .select();
-
-  if (error) {
-  console.error("Error creando categoría:", error);
-  alert("Error creando categoría: " + error.message);
-  return;
-}
-
-  if (data?.[0]) {
-    setCategorias((prev) =>
-      [...prev, data[0]].sort((a, b) =>
-        a.nombre.localeCompare(b.nombre)
-      )
+    const existe = categorias.some(
+      (c) => c.nombre.toLowerCase() === nombreLimpio.toLowerCase()
     );
+
+    if (existe) return;
+
+    const { data, error } = await supabase
+      .from("categorias")
+      .insert([{ nombre: nombreLimpio, user_id: user.id }])
+      .select();
+
+    if (error) {
+      console.error("Error creando categoría:", error);
+      alert("Error creando categoría: " + error.message);
+      return;
+    }
+
+    if (data?.[0]) {
+      setCategorias((prev) =>
+        [...prev, data[0]].sort((a, b) =>
+          a.nombre.localeCompare(b.nombre)
+        )
+      );
+    }
   }
-}
   const setMesActual = () => {
     setMesSeleccionado(new Date().toISOString().slice(0, 7));
   };
@@ -492,15 +493,15 @@ export default function Page() {
     }
 
     if (data?.[0]) {
-  setMovimientos((prev) => [data[0], ...prev]);
-}
+      setMovimientos((prev) => [data[0], ...prev]);
+    }
 
-await asegurarCategoria(categoriaLimpia);
+    await asegurarCategoria(categoriaLimpia);
 
-setCategoria("");
-setDescripcion("");
-setMonto("");
-setSaving(false);
+    setCategoria("");
+    setDescripcion("");
+    setMonto("");
+    setSaving(false);
   }
 
   async function borrarMovimiento(id) {
@@ -619,53 +620,136 @@ setSaving(false);
     URL.revokeObjectURL(url);
   }
 
+  // -------- Parsing helpers (base para OCR / PDF / texto libre) --------
   function normalizarMonto(textoMonto) {
     const limpio = String(textoMonto || "")
+      .toLowerCase()
+      .replace(/\bars\b/g, "")
+      .replace(/\$/g, "")
       .replace(/\s/g, "")
       .replace(/\.(?=\d{3}(?:\D|$))/g, "")
-      .replace(",", ".");
+      .replace(",", ".")
+      .replace(/[^0-9.-]/g, "");
     const numero = Number(limpio);
     return Number.isFinite(numero) ? numero : NaN;
   }
 
   function sugerirCategoria(descripcion, tipoDetectado) {
     const texto = (descripcion || "").toLowerCase();
+    if (texto.includes("nafta") || texto.includes("combustible") || texto.includes("ypf") || texto.includes("shell") || texto.includes("axion")) return "Combustible";
     if (texto.includes("peaje")) return "Transporte";
-    if (texto.includes("super") || texto.includes("mercado")) return "Supermercado";
+    if (texto.includes("super") || texto.includes("supermercado") || texto.includes("carrefour") || texto.includes("coto") || texto.includes("día") || texto.includes("changomas")) return "Supermercado";
+    if (texto.includes("farmacia")) return "Salud";
+    if (texto.includes("colegio") || texto.includes("cuota") || texto.includes("escuela")) return "Educación";
+    if (texto.includes("meli+") || texto.includes("netflix") || texto.includes("spotify") || texto.includes("disney") || texto.includes("prime") || texto.includes("suscripción") || texto.includes("suscripcion")) return "Suscripciones";
+    if (texto.includes("limpieza") || texto.includes("laura")) return "Limpieza";
+    if (texto.includes("cochera") || texto.includes("garage") || texto.includes("estacionamiento")) return "Auto";
+    if (texto.includes("transferencia") || texto.includes("pago")) return "Transferencias";
     if (texto.includes("luz") || texto.includes("gas") || texto.includes("agua")) return "Servicios";
     if (tipoDetectado === "Ingreso") return "Ingreso";
     const primera = (descripcion || "").trim().split(/\s+/)[0];
     return primera ? primera[0].toUpperCase() + primera.slice(1) : "General";
   }
 
+  function extraerFechaDesdeTexto(lineaOriginal) {
+    let linea = lineaOriginal.trim();
+    const hoy = new Date();
+    const lower = linea.toLowerCase();
+
+    if (lower.startsWith("hoy")) {
+      return {
+        fechaDetectada: hoy.toISOString().slice(0, 10),
+        textoSinFecha: linea.replace(/^hoy\b/i, "").trim(),
+      };
+    }
+    if (lower.startsWith("ayer")) {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return {
+        fechaDetectada: d.toISOString().slice(0, 10),
+        textoSinFecha: linea.replace(/^ayer\b/i, "").trim(),
+      };
+    }
+
+    const match = linea.match(/(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?/);
+    if (!match) return { fechaDetectada: fecha, textoSinFecha: linea };
+
+    const dia = match[1].padStart(2, "0");
+    const mes = match[2].padStart(2, "0");
+    const anio = match[3]
+      ? match[3].length === 2
+        ? Number(match[3]) < 50
+          ? `20${match[3]}`
+          : `19${match[3]}`
+        : match[3]
+      : String(new Date().getFullYear());
+
+    linea = linea.replace(match[0], "").trim();
+    return {
+      fechaDetectada: `${anio}-${mes}-${dia}`,
+      textoSinFecha: linea,
+    };
+  }
+
+  function extraerMontoDesdeTexto(lineaOriginal) {
+    const matches = [...lineaOriginal.matchAll(/(?:\bARS\b\s*|\$)?\s*\d[\d.,]*/gi)];
+    if (!matches.length) return { monto: NaN, textoSinMonto: lineaOriginal.trim() };
+
+    const ultimo = matches[matches.length - 1];
+    const bruto = ultimo[0];
+    const monto = normalizarMonto(bruto);
+    const inicio = ultimo.index ?? 0;
+    const fin = inicio + bruto.length;
+    const textoSinMonto = `${lineaOriginal.slice(0, inicio)} ${lineaOriginal.slice(fin)}`.replace(/\s+/g, " ").trim();
+
+    return { monto, textoSinMonto };
+  }
+
+  function extraerDatosPago(descripcionOriginal) {
+    const texto = String(descripcionOriginal || "");
+    const lower = texto.toLowerCase();
+    let medioPago = "";
+    let cuotas = "";
+
+    if (lower.includes("visa")) medioPago = "Visa";
+    else if (lower.includes("mastercard")) medioPago = "Mastercard";
+    else if (lower.includes("debito") || lower.includes("débito")) medioPago = "Débito";
+    else if (lower.includes("credito") || lower.includes("crédito")) medioPago = "Crédito";
+
+    const matchFraccion = texto.match(/\b(\d{1,2}\s*\/\s*\d{1,2})\b/i);
+    if (matchFraccion) cuotas = matchFraccion[1].replace(/\s/g, "");
+
+    if (!cuotas && (lower.includes("cuota") || lower.includes("cuotas"))) {
+      const n = texto.match(/\b(\d{1,2})\s*cuotas?\b/i);
+      cuotas = n ? n[1] : "cuotas";
+    }
+
+    return { medio_pago: medioPago || undefined, cuotas: cuotas || undefined };
+  }
+
   function parsearLineaCargaRapida(linea, indice) {
     const texto = linea.trim();
     if (!texto) return null;
-    const partes = texto.split(/\s+/);
-    if (partes.length < 2) return null;
 
-    const ultimo = partes[partes.length - 1];
-    const monto = normalizarMonto(ultimo);
+    const { fechaDetectada, textoSinFecha } = extraerFechaDesdeTexto(texto);
+    const { monto, textoSinMonto } = extraerMontoDesdeTexto(textoSinFecha);
     if (!Number.isFinite(monto) || monto <= 0) return null;
 
-    let cursor = 0;
-    let fechaDetectada = fecha;
-    const m = partes[0].match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/);
-    if (m) {
-      const dia = m[1].padStart(2, "0");
-      const mes = m[2].padStart(2, "0");
-      const anio = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : new Date().getFullYear();
-      fechaDetectada = `${anio}-${mes}-${dia}`;
-      cursor = 1;
-    }
-
-    const descripcion = partes.slice(cursor, -1).join(" ").trim();
+    const descripcion = textoSinMonto.trim();
     if (!descripcion) return null;
+
     const lower = descripcion.toLowerCase();
     const tipoDetectado =
-      lower.includes("ingreso") || lower.includes("cobro") || lower.includes("sueldo")
+      lower.includes("ingreso") ||
+      lower.includes("cobro") ||
+      lower.includes("sueldo") ||
+      lower.includes("haberes") ||
+      lower.includes("extra") ||
+      lower.includes("horas extra")
         ? "Ingreso"
         : "Gasto";
+
+    const datosPago = extraerDatosPago(descripcion);
 
     return {
       tempId: `${Date.now()}-${indice}`,
@@ -674,8 +758,27 @@ setSaving(false);
       categoria: sugerirCategoria(descripcion, tipoDetectado),
       descripcion,
       monto,
+      ...datosPago,
     };
   }
+
+  // Placeholder para futura carga por OCR de imagen.
+  async function parsearDesdeImagen(_file) {
+    // TODO: integrar OCR y reutilizar parsearLineaCargaRapida/procesarCargaRapida.
+    setCargaRapidaError("Carga por imagen disponible próximamente.");
+    return [];
+  }
+
+  // Placeholder para futura carga desde resumen PDF.
+  async function parsearDesdePDF(_file) {
+    // TODO: integrar parser PDF y reutilizar parsearLineaCargaRapida/procesarCargaRapida.
+    setCargaRapidaError("Carga por PDF disponible próximamente.");
+    return [];
+  }
+
+  // Referencia intencional: deja explícita la interfaz para futuros importadores.
+  const futureImportParsers = { parsearDesdeImagen, parsearDesdePDF };
+  void futureImportParsers;
 
   function procesarCargaRapida() {
     setCargaRapidaError("");
@@ -685,6 +788,7 @@ setSaving(false);
       .filter(Boolean);
     if (!lineas.length) {
       setCargaRapidaError("Pegá al menos una línea para procesar.");
+      setCargaRapidaSuccess("");
       return;
     }
 
@@ -694,10 +798,12 @@ setSaving(false);
 
     if (!parseados.length) {
       setCargaRapidaError("No se pudieron detectar movimientos válidos. Revisá formato y montos.");
+      setCargaRapidaSuccess("");
       return;
     }
 
     setCargaRapidaPreview(parseados);
+    setCargaRapidaSuccess("");
   }
 
   function actualizarFilaCargaRapida(tempId, field, value) {
@@ -716,6 +822,7 @@ setSaving(false);
   async function confirmarCargaRapida() {
     if (!user || !cargaRapidaPreview.length || cargaRapidaSaving) return;
     setCargaRapidaError("");
+    setCargaRapidaSuccess("");
 
     const validas = cargaRapidaPreview.filter(
       (r) =>
@@ -752,10 +859,9 @@ setSaving(false);
     if (data?.length) {
       setMovimientos((prev) => [...data, ...prev]);
       const categoriasUnicas = [...new Set(payload.map((x) => x.categoria))];
-      for (const cat of categoriasUnicas) {
-        // preparado para futura carga por OCR/imagen/PDF reutilizando el mismo guardado.
-        await asegurarCategoria(cat);
-      }
+      await Promise.all(categoriasUnicas.map((cat) => asegurarCategoria(cat)));
+      setCargaRapidaSuccess(`✔️ ${data.length} movimientos guardados correctamente`);
+      setTimeout(() => setCargaRapidaSuccess(""), 3500);
     }
 
     setCargaRapidaTexto("");
@@ -978,34 +1084,34 @@ setSaving(false);
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
 
             <select
-  value={categoria}
-  onChange={(e) => {
-    const value = e.target.value;
+              value={categoria}
+              onChange={(e) => {
+                const value = e.target.value;
 
-    if (value === "__nueva__") {
-      const nueva = prompt("Nombre de la nueva categoría:");
+                if (value === "__nueva__") {
+                  const nueva = prompt("Nombre de la nueva categoría:");
 
-      if (nueva && nueva.trim()) {
-        setCategoria(nueva.trim());
-      }
+                  if (nueva && nueva.trim()) {
+                    setCategoria(nueva.trim());
+                  }
 
-      return;
-    }
+                  return;
+                }
 
-    setCategoria(value);
-  }}
-  style={inputStyle}
->
-  <option value="">Categoría</option>
+                setCategoria(value);
+              }}
+              style={inputStyle}
+            >
+              <option value="">Categoría</option>
 
-  {categorias.map((cat) => (
-    <option key={cat.id} value={cat.nombre}>
-      {cat.nombre}
-    </option>
-  ))}
+              {categorias.map((cat) => (
+                <option key={cat.id} value={cat.nombre}>
+                  {cat.nombre}
+                </option>
+              ))}
 
-  <option value="__nueva__">+ Nueva categoría</option>
-</select>
+              <option value="__nueva__">+ Nueva categoría</option>
+            </select>
 
             <input
               placeholder="Descripción"
@@ -1036,6 +1142,7 @@ setSaving(false);
             Pegá texto libre (una línea por movimiento). Próximamente se podrá sumar OCR desde imagen/PDF.
           </p>
           {cargaRapidaError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{cargaRapidaError}</p>}
+          {cargaRapidaSuccess && <p style={{ color: "#86efac", marginTop: 0 }}>{cargaRapidaSuccess}</p>}
 
           <textarea
             value={cargaRapidaTexto}
@@ -1103,6 +1210,18 @@ setSaving(false);
                     onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "monto", e.target.value)}
                     style={inputStyle}
                     placeholder="Monto"
+                  />
+                  <input
+                    value={fila.medio_pago || ""}
+                    onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "medio_pago", e.target.value)}
+                    style={inputStyle}
+                    placeholder="Medio de pago (opcional)"
+                  />
+                  <input
+                    value={fila.cuotas || ""}
+                    onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "cuotas", e.target.value)}
+                    style={inputStyle}
+                    placeholder="Cuotas (opcional)"
                   />
                 </div>
               ))}
@@ -1240,102 +1359,102 @@ setSaving(false);
                   </thead>
                   <tbody>
                     {movimientosFiltrados.map((m) => (
-  <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <input
-          type="date"
-          value={editData.fecha}
-          onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
-          style={inputStyle}
-        />
-      ) : (
-        m.fecha
-      )}
-    </td>
+                      <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <input
+                              type="date"
+                              value={editData.fecha}
+                              onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
+                              style={inputStyle}
+                            />
+                          ) : (
+                            m.fecha
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <select
-          value={editData.tipo}
-          onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
-          style={inputStyle}
-        >
-          <option value="Gasto">Gasto</option>
-          <option value="Ingreso">Ingreso</option>
-        </select>
-      ) : (
-        m.tipo
-      )}
-    </td>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <select
+                              value={editData.tipo}
+                              onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
+                              style={inputStyle}
+                            >
+                              <option value="Gasto">Gasto</option>
+                              <option value="Ingreso">Ingreso</option>
+                            </select>
+                          ) : (
+                            m.tipo
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <select
-          value={editData.categoria}
-          onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
-          style={inputStyle}
-        >
-          <option value="">Categoría</option>
-          {categorias.map((cat) => (
-            <option key={cat.id} value={cat.nombre}>
-              {cat.nombre}
-            </option>
-          ))}
-        </select>
-      ) : (
-        m.categoria
-      )}
-    </td>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <select
+                              value={editData.categoria}
+                              onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
+                              style={inputStyle}
+                            >
+                              <option value="">Categoría</option>
+                              {categorias.map((cat) => (
+                                <option key={cat.id} value={cat.nombre}>
+                                  {cat.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            m.categoria
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <input
-          value={editData.descripcion}
-          onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
-          style={inputStyle}
-        />
-      ) : (
-        m.descripcion
-      )}
-    </td>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <input
+                              value={editData.descripcion}
+                              onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
+                              style={inputStyle}
+                            />
+                          ) : (
+                            m.descripcion
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <input
-          type="number"
-          value={editData.monto}
-          onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
-          style={inputStyle}
-        />
-      ) : (
-        money(m.monto)
-      )}
-    </td>
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <input
+                              type="number"
+                              value={editData.monto}
+                              onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
+                              style={inputStyle}
+                            />
+                          ) : (
+                            money(m.monto)
+                          )}
+                        </td>
 
-    <td style={thtdStyle}>
-      {editandoId === m.id ? (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
-            {saving ? "Guardando..." : "Guardar"}
-          </button>
-          <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
-            Cancelar
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
-            Editar
-          </button>
-          <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
-            Borrar
-          </button>
-        </div>
-      )}
-    </td>
-  </tr>
-))}
+                        <td style={thtdStyle}>
+                          {editandoId === m.id ? (
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
+                                {saving ? "Guardando..." : "Guardar"}
+                              </button>
+                              <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
+                                Editar
+                              </button>
+                              <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
+                                Borrar
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
 
                     {movimientosFiltrados.length === 0 && (
                       <tr>
