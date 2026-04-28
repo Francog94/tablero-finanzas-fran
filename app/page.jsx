@@ -243,6 +243,11 @@ export default function Page() {
   const [cargaRapidaError, setCargaRapidaError] = useState("");
   const [cargaRapidaSaving, setCargaRapidaSaving] = useState(false);
   const [cargaRapidaSuccess, setCargaRapidaSuccess] = useState("");
+  const [importarResumenTexto, setImportarResumenTexto] = useState("");
+  const [importarResumenPreview, setImportarResumenPreview] = useState([]);
+  const [importarResumenError, setImportarResumenError] = useState("");
+  const [importarResumenSaving, setImportarResumenSaving] = useState(false);
+  const [importarResumenSuccess, setImportarResumenSuccess] = useState("");
   const [editData, setEditData] = useState({
     tipo: "Gasto",
     fecha: "",
@@ -762,6 +767,43 @@ export default function Page() {
     };
   }
 
+  function parsearLineaImportarResumen(linea, indice) {
+    const base = parsearLineaCargaRapida(linea, indice);
+    if (base) return base;
+
+    // Fallback conservador para líneas con texto muy sucio.
+    const texto = String(linea || "").replace(/\s+/g, " ").trim();
+    if (!texto) return null;
+
+    const { fechaDetectada, textoSinFecha } = extraerFechaDesdeTexto(texto);
+    const { monto, textoSinMonto } = extraerMontoDesdeTexto(textoSinFecha);
+
+    if (!Number.isFinite(monto) || monto <= 0) return null;
+
+    const descripcion = textoSinMonto.trim();
+    if (descripcion.length < 3) return null;
+
+    const lower = descripcion.toLowerCase();
+    const tipoDetectado =
+      lower.includes("pago recibido") ||
+      lower.includes("acreditacion") ||
+      lower.includes("acreditación") ||
+      lower.includes("transferencia recibida") ||
+      lower.includes("ingreso")
+        ? "Ingreso"
+        : "Gasto";
+
+    return {
+      tempId: `resumen-${Date.now()}-${indice}`,
+      fecha: fechaDetectada,
+      tipo: tipoDetectado,
+      categoria: sugerirCategoria(descripcion, tipoDetectado),
+      descripcion,
+      monto,
+      ...extraerDatosPago(descripcion),
+    };
+  }
+
   // Placeholder para futura carga por OCR de imagen.
   async function parsearDesdeImagen(_file) {
     // TODO: integrar OCR y reutilizar parsearLineaCargaRapida/procesarCargaRapida.
@@ -846,6 +888,7 @@ export default function Page() {
       categoria: r.categoria.trim(),
       descripcion: r.descripcion.trim(),
       monto: Number(r.monto),
+      // medio_pago / cuotas son solo ayuda visual en preview por ahora; aún no se persisten en DB.
       user_id: user.id,
     }));
 
@@ -855,9 +898,12 @@ export default function Page() {
       setCargaRapidaSaving(false);
       return;
     }
-
-    if (data?.length) {
-      setMovimientos((prev) => [...data, ...prev]);
+        if (data?.length) {
+      setMovimientos((prev) =>
+        [...data, ...prev].sort(
+          (a, b) => b.fecha.localeCompare(a.fecha) || Number(b.id) - Number(a.id)
+        )
+      );
       const categoriasUnicas = [...new Set(payload.map((x) => x.categoria))];
       await Promise.all(categoriasUnicas.map((cat) => asegurarCategoria(cat)));
       setCargaRapidaSuccess(`✔️ ${data.length} movimientos guardados correctamente`);
@@ -867,6 +913,100 @@ export default function Page() {
     setCargaRapidaTexto("");
     setCargaRapidaPreview([]);
     setCargaRapidaSaving(false);
+  }
+
+  function procesarImportarResumen() {
+    setImportarResumenError("");
+    setImportarResumenSuccess("");
+
+    const lineas = importarResumenTexto
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    if (!lineas.length) {
+      setImportarResumenError("Pegá al menos una línea para importar.");
+      return;
+    }
+
+    const parseados = lineas
+      .map((linea, i) => parsearLineaImportarResumen(linea, i))
+      .filter(Boolean);
+
+    if (!parseados.length) {
+      setImportarResumenError("No se detectaron movimientos válidos en el texto pegado.");
+      return;
+    }
+
+    setImportarResumenPreview(parseados);
+  }
+
+  function actualizarFilaImportarResumen(tempId, field, value) {
+    setImportarResumenPreview((prev) =>
+      prev.map((fila) =>
+        fila.tempId === tempId
+          ? {
+              ...fila,
+              [field]: field === "monto" ? Number(value) : value,
+            }
+          : fila
+      )
+    );
+  }
+
+  async function confirmarImportarResumen() {
+    if (!user || !importarResumenPreview.length || importarResumenSaving) return;
+    setImportarResumenError("");
+    setImportarResumenSuccess("");
+
+    const validas = importarResumenPreview.filter(
+      (r) =>
+        r.fecha &&
+        r.tipo &&
+        r.categoria?.trim() &&
+        r.descripcion?.trim() &&
+        Number.isFinite(Number(r.monto)) &&
+        Number(r.monto) > 0
+    );
+
+    if (validas.length !== importarResumenPreview.length) {
+      setImportarResumenError("Hay filas inválidas en la previsualización. Corregilas antes de guardar.");
+      return;
+    }
+
+    setImportarResumenSaving(true);
+    const payload = validas.map((r) => ({
+      fecha: r.fecha,
+      tipo: r.tipo,
+      categoria: r.categoria.trim(),
+      descripcion: r.descripcion.trim(),
+      monto: Number(r.monto),
+      // medio_pago / cuotas son solo ayuda visual en preview por ahora; aún no se persisten en DB.
+      user_id: user.id,
+    }));
+
+    const { data, error } = await supabase.from("movimientos").insert(payload).select();
+    if (error) {
+      setImportarResumenError(`No se pudo guardar: ${error.message}`);
+      setImportarResumenSaving(false);
+      return;
+    }
+
+    if (data?.length) {
+      setMovimientos((prev) =>
+        [...data, ...prev].sort(
+          (a, b) => b.fecha.localeCompare(a.fecha) || Number(b.id) - Number(a.id)
+        )
+      );
+      const categoriasUnicas = [...new Set(payload.map((x) => x.categoria))];
+      await Promise.all(categoriasUnicas.map((cat) => asegurarCategoria(cat)));
+      setImportarResumenSuccess(`✔️ ${data.length} movimientos guardados correctamente`);
+      setTimeout(() => setImportarResumenSuccess(""), 3500);
+    }
+
+    setImportarResumenTexto("");
+    setImportarResumenPreview([]);
+    setImportarResumenSaving(false);
   }
 
   async function autenticar(modo) {
@@ -1084,34 +1224,34 @@ export default function Page() {
             <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
 
             <select
-              value={categoria}
-              onChange={(e) => {
-                const value = e.target.value;
+  value={categoria}
+  onChange={(e) => {
+    const value = e.target.value;
 
-                if (value === "__nueva__") {
-                  const nueva = prompt("Nombre de la nueva categoría:");
+    if (value === "__nueva__") {
+      const nueva = prompt("Nombre de la nueva categoría:");
 
-                  if (nueva && nueva.trim()) {
-                    setCategoria(nueva.trim());
-                  }
+      if (nueva && nueva.trim()) {
+        setCategoria(nueva.trim());
+      }
 
-                  return;
-                }
+      return;
+    }
 
-                setCategoria(value);
-              }}
-              style={inputStyle}
-            >
-              <option value="">Categoría</option>
+    setCategoria(value);
+  }}
+  style={inputStyle}
+>
+  <option value="">Categoría</option>
 
-              {categorias.map((cat) => (
-                <option key={cat.id} value={cat.nombre}>
-                  {cat.nombre}
-                </option>
-              ))}
+  {categorias.map((cat) => (
+    <option key={cat.id} value={cat.nombre}>
+      {cat.nombre}
+    </option>
+  ))}
 
-              <option value="__nueva__">+ Nueva categoría</option>
-            </select>
+  <option value="__nueva__">+ Nueva categoría</option>
+</select>
 
             <input
               placeholder="Descripción"
@@ -1239,6 +1379,97 @@ export default function Page() {
           )}
         </div>
 
+        <div style={{ ...cardStyle, marginBottom: "24px" }}>
+          <h2 style={{ marginTop: 0 }}>Importar resumen</h2>
+          <p style={{ color: "#94a3b8", marginTop: 0 }}>
+            Pegá movimientos copiados desde resumen de tarjeta, banco o MercadoPago (sin OCR todavía).
+          </p>
+          {importarResumenError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{importarResumenError}</p>}
+          {importarResumenSuccess && <p style={{ color: "#86efac", marginTop: 0 }}>{importarResumenSuccess}</p>}
+
+          <textarea
+            value={importarResumenTexto}
+            onChange={(e) => setImportarResumenTexto(e.target.value)}
+            placeholder={`16/04/2026 MERCADOPAGO 19.000,00\n17/04/2026 YPF SERVICLUB 35.500,50\n18/04 COTO SUCURSAL 84.200\nMELI+ 3.490\nPAGO TRANSFERENCIA LAURA 50.000`}
+            style={{ ...inputStyle, minHeight: 130, resize: "vertical", fontFamily: "inherit" }}
+          />
+
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={procesarImportarResumen} style={buttonStyle}>
+              Procesar resumen
+            </button>
+            <button
+              onClick={() => setImportarResumenPreview([])}
+              style={{ ...buttonStyle, background: "#475569", boxShadow: "none" }}
+            >
+              Limpiar previsualización
+            </button>
+          </div>
+
+          {importarResumenPreview.length > 0 && (
+            <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+              <h3 style={{ margin: 0 }}>Previsualización editable ({importarResumenPreview.length})</h3>
+              {importarResumenPreview.map((fila) => (
+                <div
+                  key={fila.tempId}
+                  style={{
+                    border: "1px solid #334155",
+                    borderRadius: 12,
+                    padding: 12,
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    gap: 8,
+                  }}
+                >
+                  <input
+                    type="date"
+                    value={fila.fecha}
+                    onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "fecha", e.target.value)}
+                    style={inputStyle}
+                  />
+                  <select
+                    value={fila.tipo}
+                    onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "tipo", e.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="Gasto">Gasto</option>
+                    <option value="Ingreso">Ingreso</option>
+                  </select>
+                  <input
+                    value={fila.categoria}
+                    onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "categoria", e.target.value)}
+                    style={inputStyle}
+                    placeholder="Categoría"
+                  />
+                  <input
+                    value={fila.descripcion}
+                    onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "descripcion", e.target.value)}
+                    style={inputStyle}
+                    placeholder="Descripción"
+                  />
+                  <input
+                    type="number"
+                    value={fila.monto}
+                    onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "monto", e.target.value)}
+                    style={inputStyle}
+                    placeholder="Monto"
+                  />
+                </div>
+              ))}
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  onClick={confirmarImportarResumen}
+                  style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)" }}
+                  disabled={importarResumenSaving}
+                >
+                  {importarResumenSaving ? "Guardando..." : "Confirmar y guardar"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div
           style={{
             display: "grid",
@@ -1359,102 +1590,102 @@ export default function Page() {
                   </thead>
                   <tbody>
                     {movimientosFiltrados.map((m) => (
-                      <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <input
-                              type="date"
-                              value={editData.fecha}
-                              onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
-                              style={inputStyle}
-                            />
-                          ) : (
-                            m.fecha
-                          )}
-                        </td>
+  <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          type="date"
+          value={editData.fecha}
+          onChange={(e) => setEditData({ ...editData, fecha: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        m.fecha
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <select
-                              value={editData.tipo}
-                              onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
-                              style={inputStyle}
-                            >
-                              <option value="Gasto">Gasto</option>
-                              <option value="Ingreso">Ingreso</option>
-                            </select>
-                          ) : (
-                            m.tipo
-                          )}
-                        </td>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <select
+          value={editData.tipo}
+          onChange={(e) => setEditData({ ...editData, tipo: e.target.value })}
+          style={inputStyle}
+        >
+          <option value="Gasto">Gasto</option>
+          <option value="Ingreso">Ingreso</option>
+        </select>
+      ) : (
+        m.tipo
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <select
-                              value={editData.categoria}
-                              onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
-                              style={inputStyle}
-                            >
-                              <option value="">Categoría</option>
-                              {categorias.map((cat) => (
-                                <option key={cat.id} value={cat.nombre}>
-                                  {cat.nombre}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            m.categoria
-                          )}
-                        </td>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <select
+          value={editData.categoria}
+          onChange={(e) => setEditData({ ...editData, categoria: e.target.value })}
+          style={inputStyle}
+        >
+          <option value="">Categoría</option>
+          {categorias.map((cat) => (
+            <option key={cat.id} value={cat.nombre}>
+              {cat.nombre}
+            </option>
+          ))}
+        </select>
+      ) : (
+        m.categoria
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <input
-                              value={editData.descripcion}
-                              onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
-                              style={inputStyle}
-                            />
-                          ) : (
-                            m.descripcion
-                          )}
-                        </td>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          value={editData.descripcion}
+          onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        m.descripcion
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <input
-                              type="number"
-                              value={editData.monto}
-                              onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
-                              style={inputStyle}
-                            />
-                          ) : (
-                            money(m.monto)
-                          )}
-                        </td>
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <input
+          type="number"
+          value={editData.monto}
+          onChange={(e) => setEditData({ ...editData, monto: e.target.value })}
+          style={inputStyle}
+        />
+      ) : (
+        money(m.monto)
+      )}
+    </td>
 
-                        <td style={thtdStyle}>
-                          {editandoId === m.id ? (
-                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                              <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
-                                {saving ? "Guardando..." : "Guardar"}
-                              </button>
-                              <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : (
-                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                              <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
-                                Editar
-                              </button>
-                              <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
-                                Borrar
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+    <td style={thtdStyle}>
+      {editandoId === m.id ? (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
+            {saving ? "Guardando..." : "Guardar"}
+          </button>
+          <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
+            Editar
+          </button>
+          <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
+            Borrar
+          </button>
+        </div>
+      )}
+    </td>
+  </tr>
+))}
 
                     {movimientosFiltrados.length === 0 && (
                       <tr>
