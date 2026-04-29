@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -304,6 +304,7 @@ export default function Page() {
   const [filtroTipo, setFiltroTipo] = useState("Todos");
   const [mesSeleccionado, setMesSeleccionado] = useState("");
   const [tabActiva, setTabActiva] = useState("resumen");
+  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
 
   const [editandoId, setEditandoId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -342,6 +343,49 @@ export default function Page() {
     descripcion: "",
     monto: "",
   });
+  const menuUsuarioRef = useRef(null);
+
+  const nombreMostradoUsuario = useMemo(() => {
+    const metadata = user?.user_metadata || {};
+    const nombre =
+      metadata.full_name ||
+      metadata.name ||
+      metadata.nombre ||
+      metadata.display_name ||
+      "";
+
+    if (String(nombre).trim()) return String(nombre).trim();
+    if (!user?.email) return "Usuario";
+
+    const [alias] = user.email.split("@");
+    return `${alias}@...`;
+  }, [user]);
+
+  const cerrarSesion = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setMovimientos([]);
+    setCategorias([]);
+    setPerfilFinanciero(null);
+    setSaldoInicial("0");
+    setMoneda("ARS");
+    setPerfilError("");
+    setPerfilLoading(false);
+    setMenuUsuarioAbierto(false);
+  };
+
+  useEffect(() => {
+    function manejarClickFuera(event) {
+      if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(event.target)) {
+        setMenuUsuarioAbierto(false);
+      }
+    }
+
+    document.addEventListener("mousedown", manejarClickFuera);
+    return () => {
+      document.removeEventListener("mousedown", manejarClickFuera);
+    };
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -1701,50 +1745,76 @@ export default function Page() {
         @media (max-width: 768px) {
           .desktop-table { display: none; }
           .mobile-cards { display: grid; gap: 14px; }
-          .app-shell { padding: max(10px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom)); }
+          .app-shell { padding: max(10px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); }
           .app-container { max-width: none; margin: 0; }
+          .header-title { display: none; }
         }
       `}</style>
 
       <div style={containerStyle} className="app-container">
-                <div
+        <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             gap: "16px",
-            flexWrap: "wrap",
             marginBottom: "24px",
           }}
         >
-          <div>
-            <h1 style={{ fontSize: "34px", marginBottom: "8px", letterSpacing: "-0.02em" }}>Tablero financiero</h1>
-            <p style={{ color: "#94a3b8", margin: 0 }}>Sesión activa: {user?.email}</p>
-          </div>
+          <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
 
-          <button
-            style={{ ...buttonStyle, background: "#dc2626" }}
-            onClick={async () => {
-              await supabase.auth.signOut();
-              setUser(null);
-              setMovimientos([]);
-              setCategorias([]);
-              setPerfilFinanciero(null);
-              setSaldoInicial("0");
-              setMoneda("ARS");
-              setPerfilError("");
-              setPerfilLoading(false);
-            }}
-          >
-            Cerrar sesión
-          </button>
+          <div style={{ position: "relative" }} ref={menuUsuarioRef}>
+            <button
+              onClick={() => setMenuUsuarioAbierto((prev) => !prev)}
+              aria-label="Abrir menú de usuario"
+              style={{
+                ...buttonStyle,
+                width: 44,
+                height: 44,
+                padding: "0",
+                borderRadius: "12px",
+                background: "#1e293b",
+                border: "1px solid #334155",
+                boxShadow: "none",
+                fontSize: "16px",
+                lineHeight: 1,
+              }}
+            >
+              👤
+            </button>
+
+            {menuUsuarioAbierto && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 10px)",
+                  right: 0,
+                  minWidth: "220px",
+                  background: "#0b1220",
+                  border: "1px solid #263244",
+                  borderRadius: "14px",
+                  boxShadow: "0 10px 30px rgba(2, 6, 23, 0.35)",
+                  overflow: "hidden",
+                  zIndex: 20,
+                }}
+              >
+                <div style={{ padding: "12px 14px", borderBottom: "1px solid #1e293b", color: "#cbd5e1", fontWeight: 600 }}>
+                  {nombreMostradoUsuario}
+                </div>
+                <button onClick={() => setTabActiva("configuracion")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Configuración</button>
+                <button style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Perfil</button>
+                <button onClick={cerrarSesion} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Cerrar sesión</button>
+                <button style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>Eliminar cuenta</button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div
           style={{
             ...cardStyle,
-            marginBottom: "24px",
-            padding: "12px",
+            marginBottom: "16px",
+            padding: "10px",
             background: "linear-gradient(180deg, #0f172a 0%, #0b1220 100%)",
           }}
         >
@@ -1753,7 +1823,8 @@ export default function Page() {
               onClick={() => setTabActiva("resumen")}
               style={{
                 ...buttonStyle,
-                padding: "10px 14px",
+                padding: "10px 12px",
+                fontSize: "14px",
                 borderRadius: "10px",
                 background:
                   tabActiva === "resumen"
@@ -1771,7 +1842,8 @@ export default function Page() {
               onClick={() => setTabActiva("movimientos")}
               style={{
                 ...buttonStyle,
-                padding: "10px 14px",
+                padding: "10px 12px",
+                fontSize: "14px",
                 borderRadius: "10px",
                 background:
                   tabActiva === "movimientos"
@@ -1789,7 +1861,8 @@ export default function Page() {
               onClick={() => setTabActiva("agregar")}
               style={{
                 ...buttonStyle,
-                padding: "10px 14px",
+                padding: "10px 12px",
+                fontSize: "14px",
                 borderRadius: "10px",
                 background:
                   tabActiva === "agregar"
@@ -1807,7 +1880,8 @@ export default function Page() {
               onClick={() => setTabActiva("importar")}
               style={{
                 ...buttonStyle,
-                padding: "10px 14px",
+                padding: "10px 12px",
+                fontSize: "14px",
                 borderRadius: "10px",
                 background:
                   tabActiva === "importar"
@@ -1825,7 +1899,8 @@ export default function Page() {
               onClick={() => setTabActiva("categorias")}
               style={{
                 ...buttonStyle,
-                padding: "10px 14px",
+                padding: "10px 12px",
+                fontSize: "14px",
                 borderRadius: "10px",
                 background:
                   tabActiva === "categorias"
@@ -1843,7 +1918,8 @@ export default function Page() {
               onClick={() => setTabActiva("configuracion")}
               style={{
                 ...buttonStyle,
-                padding: "10px 14px",
+                padding: "10px 12px",
+                fontSize: "14px",
                 borderRadius: "10px",
                 background:
                   tabActiva === "configuracion"
@@ -1880,12 +1956,12 @@ export default function Page() {
               style={{
                 ...cardStyle,
                 marginBottom: "16px",
-                padding: "22px",
+                padding: "16px",
                 borderRadius: "22px",
               }}
             >
-              <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: "8px" }}>Saldo actual</h3>
-              <div style={{ ...valueStyle, fontSize: "40px", marginTop: 0, color: saldoActual >= 0 ? "#34d399" : "#f87171" }}>
+              <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: "6px", fontSize: "12px" }}>Saldo actual</h3>
+              <div style={{ ...valueStyle, fontSize: "clamp(34px, 8vw, 38px)", marginTop: 0, color: saldoActual >= 0 ? "#34d399" : "#f87171" }}>
                 {money(saldoActual, monedaActiva)}
               </div>
               <div style={{ color: "#94a3b8", fontSize: "13px", marginTop: "6px" }}>Saldo total (todos los movimientos)</div>
@@ -1895,35 +1971,35 @@ export default function Page() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "14px",
-                marginBottom: "16px",
+                gap: "10px",
+                marginBottom: "12px",
               }}
             >
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Gastos del período</h3>
-                <div style={{ ...valueStyle, color: "#f87171" }}>{money(totalGastos, monedaActiva)}</div>
+              <div style={{ ...cardStyle, padding: "14px" }}>
+                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", fontSize: "12px" }}>Gastos del período</h3>
+                <div style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#f87171", marginTop: "8px" }}>{money(totalGastos, monedaActiva)}</div>
               </div>
 
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Ingresos del período</h3>
-                <div style={{ ...valueStyle, color: "#34d399" }}>{money(totalIngresos, monedaActiva)}</div>
+              <div style={{ ...cardStyle, padding: "14px" }}>
+                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", fontSize: "12px" }}>Ingresos del período</h3>
+                <div style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#34d399", marginTop: "8px" }}>{money(totalIngresos, monedaActiva)}</div>
               </div>
             </div>
 
-            <div style={{ ...cardStyle, marginBottom: "16px", padding: "14px" }}>
+            <div style={{ ...cardStyle, marginBottom: "12px", padding: "12px" }}>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Día</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Semana</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Mes</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 4))} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Año</button>
-                <button onClick={setTodos} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Todos</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Día</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Semana</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Mes</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 4))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Año</button>
+                <button onClick={setTodos} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Todos</button>
               </div>
             </div>
 
-            <div style={{ ...cardStyle, marginBottom: "16px", textAlign: "center" }}>
-              <h2 style={{ marginTop: 0, marginBottom: "14px" }}>Gastos por categoría</h2>
+            <div style={{ ...cardStyle, marginBottom: "12px", textAlign: "center", padding: "14px" }}>
+              <h2 style={{ marginTop: 0, marginBottom: "10px", fontSize: "16px" }}>Gastos por categoría</h2>
               <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-                <div style={{ width: "100%", maxWidth: 420 }}>
+                <div style={{ width: "100%", maxWidth: 220 }}>
                   <PieChartSimple data={porCategoria} currency={monedaActiva} />
                 </div>
               </div>
@@ -1974,13 +2050,13 @@ export default function Page() {
                 position: "fixed",
                 right: "18px",
                 bottom: "22px",
-                width: "56px",
-                height: "56px",
+                width: "52px",
+                height: "52px",
                 borderRadius: "999px",
                 border: "none",
                 background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
                 color: "#fff",
-                fontSize: "32px",
+                fontSize: "28px",
                 lineHeight: 1,
                 cursor: "pointer",
                 boxShadow: "0 12px 26px rgba(37, 99, 235, 0.4)",
