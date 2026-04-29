@@ -75,6 +75,8 @@ function iconoCategoria(nombre) {
   return "💸";
 }
 
+const EMOJIS_CATEGORIA = ["💸", "🍽️", "🛒", "🚗", "⛽", "🏠", "🎉", "✈️", "💳", "📱", "💊", "🎓", "🧹", "💰", "🐶", "🧾"];
+
 const pageStyle = {
   minHeight: "100dvh",
   width: "100%",
@@ -329,6 +331,9 @@ export default function Page() {
   const [categoriaEliminando, setCategoriaEliminando] = useState(null);
   const [categoriaDestinoReasignacion, setCategoriaDestinoReasignacion] = useState("");
   const [categoriaGestionLoading, setCategoriaGestionLoading] = useState(false);
+  const [categoriaEditandoId, setCategoriaEditandoId] = useState(null);
+  const [categoriaEditNombre, setCategoriaEditNombre] = useState("");
+  const [categoriaEditIcono, setCategoriaEditIcono] = useState("💸");
   const supabaseRuntimeError = supabaseConfigError || supabaseInitError;
   const [editData, setEditData] = useState({
     tipo: "Gasto",
@@ -559,7 +564,7 @@ export default function Page() {
 
     const { data, error } = await supabase
       .from("categorias")
-      .insert([{ nombre: nombreLimpio, user_id: user.id }])
+      .insert([{ nombre: nombreLimpio, user_id: user.id, icono: iconoCategoria(nombreLimpio) }])
       .select();
 
     if (error) {
@@ -1413,6 +1418,80 @@ export default function Page() {
     setCategoriaGestionLoading(false);
   }
 
+  function iniciarEdicionCategoria(cat) {
+    setCategoriaGestionError("");
+    setCategoriaGestionMsg("");
+    setCategoriaEditandoId(cat.id);
+    setCategoriaEditNombre(cat.nombre);
+    setCategoriaEditIcono(cat.icono || iconoCategoria(cat.nombre));
+  }
+
+  function cancelarEdicionCategoria() {
+    setCategoriaEditandoId(null);
+    setCategoriaEditNombre("");
+    setCategoriaEditIcono("💸");
+  }
+
+  async function guardarEdicionCategoria(cat) {
+    if (!user) return;
+    const nombreNuevo = categoriaEditNombre.trim();
+    if (!nombreNuevo) {
+      setCategoriaGestionError("El nombre de la categoría no puede estar vacío.");
+      return;
+    }
+
+    const nombreViejo = cat.nombre;
+    const iconoNuevo = categoriaEditIcono || "💸";
+    const existeNombre = categorias.some((c) => c.id !== cat.id && c.nombre.toLowerCase() === nombreNuevo.toLowerCase());
+    if (existeNombre) {
+      setCategoriaGestionError("Ya existe otra categoría con ese nombre.");
+      return;
+    }
+
+    setCategoriaGestionLoading(true);
+    setCategoriaGestionError("");
+    setCategoriaGestionMsg("");
+
+    const { data: categoriaActualizada, error: errorCategoria } = await supabase
+      .from("categorias")
+      .update({ nombre: nombreNuevo, icono: iconoNuevo })
+      .eq("id", cat.id)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (errorCategoria) {
+      setCategoriaGestionLoading(false);
+      setCategoriaGestionError(`No se pudo actualizar la categoría: ${errorCategoria.message}`);
+      return;
+    }
+
+    if (nombreNuevo !== nombreViejo) {
+      const { error: errorMovs } = await supabase
+        .from("movimientos")
+        .update({ categoria: nombreNuevo })
+        .eq("user_id", user.id)
+        .eq("categoria", nombreViejo);
+
+      if (errorMovs) {
+        setCategoriaGestionLoading(false);
+        setCategoriaGestionError(`Se actualizó la categoría, pero falló la actualización de movimientos: ${errorMovs.message}`);
+        return;
+      }
+    }
+
+    setCategorias((prev) => prev.map((c) => (c.id === cat.id ? categoriaActualizada : c)).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+    if (nombreNuevo !== nombreViejo) {
+      setMovimientos((prev) => prev.map((m) => (m.categoria === nombreViejo ? { ...m, categoria: nombreNuevo } : m)));
+    }
+    if (categoria === nombreViejo) setCategoria(nombreNuevo);
+    if (editData.categoria === nombreViejo) setEditData((prev) => ({ ...prev, categoria: nombreNuevo }));
+
+    setCategoriaGestionMsg(`Categoría "${nombreViejo}" actualizada correctamente.`);
+    setCategoriaGestionLoading(false);
+    cancelarEdicionCategoria();
+  }
+
   async function autenticar(modo) {
     if (authLoading) return;
     setAuthError("");
@@ -1855,9 +1934,11 @@ export default function Page() {
                 {porCategoria.slice(0, 5).map((item, idx) => {
                   const total = porCategoria.reduce((acc, cat) => acc + Number(cat.value || 0), 0);
                   const porcentaje = total ? Math.round((item.value / total) * 100) : 0;
+                  const categoriaEncontrada = categorias.find((cat) => cat.nombre === item.name);
+                  const iconoResumen = categoriaEncontrada?.icono || iconoCategoria(item.name);
                   return (
                     <div key={item.name} style={{ display: "grid", gridTemplateColumns: "24px 1fr auto auto", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 16 }}>{iconoCategoria(item.name)}</span>
+                      <span style={{ fontSize: 16 }}>{iconoResumen}</span>
                       <span style={{ color: "#e2e8f0", fontSize: 14 }}>{item.name}</span>
                       <span style={{ color: "#94a3b8", fontSize: 13 }}>{porcentaje}%</span>
                       <strong style={{ fontSize: 14 }}>{money(item.value, monedaActiva)}</strong>
@@ -2485,7 +2566,7 @@ export default function Page() {
           <div style={{ ...cardStyle, marginBottom: "24px" }}>
             <h2 style={{ marginTop: 0 }}>Gestión de categorías</h2>
             <p style={{ color: "#94a3b8", marginTop: 0 }}>
-              Podés eliminar categorías. Si tienen movimientos asociados, primero tenés que reasignarlos.
+              Podés editar ícono y nombre de las categorías, o eliminarlas. Si tienen movimientos asociados, primero tenés que reasignarlos.
             </p>
             {categoriaGestionError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{categoriaGestionError}</p>}
             {categoriaGestionMsg && <p style={{ color: "#86efac", marginTop: 0 }}>{categoriaGestionMsg}</p>}
@@ -2495,6 +2576,7 @@ export default function Page() {
               <div style={{ display: "grid", gap: 8 }}>
                 {categorias.map((cat) => {
                   const cantidadMovs = movimientos.filter((m) => m.categoria === cat.nombre).length;
+                  const enEdicion = categoriaEditandoId === cat.id;
                   return (
                     <div
                       key={cat.id}
@@ -2508,18 +2590,47 @@ export default function Page() {
                         padding: "10px 12px",
                       }}
                     >
-                      <div>
-                        <strong>{cat.nombre}</strong>
-                        <div style={{ color: "#94a3b8", fontSize: 13 }}>{cantidadMovs} movimientos</div>
-                      </div>
-                      <button
-                        onClick={() => intentarEliminarCategoria(cat)}
-                        style={{ ...buttonStyle, padding: "8px 10px", background: "#7f1d1d", boxShadow: "none" }}
-                        disabled={categoriaGestionLoading}
-                        title="Eliminar categoría"
-                      >
-                        🗑️ Eliminar categoría
-                      </button>
+                      {enEdicion ? (
+                        <div style={{ display: "grid", gap: 8, width: "100%" }}>
+                          <label style={{ color: "#cbd5e1", fontSize: 13, display: "grid", gap: 6 }}>
+                            Nombre
+                            <input value={categoriaEditNombre} onChange={(e) => setCategoriaEditNombre(e.target.value)} style={inputStyle} />
+                          </label>
+                          <label style={{ color: "#cbd5e1", fontSize: 13, display: "grid", gap: 6 }}>
+                            Ícono
+                            <select value={categoriaEditIcono} onChange={(e) => setCategoriaEditIcono(e.target.value)} style={inputStyle}>
+                              {EMOJIS_CATEGORIA.map((emoji) => (
+                                <option key={emoji} value={emoji}>{emoji}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button onClick={() => guardarEdicionCategoria(cat)} style={{ ...buttonStyle, padding: "8px 10px", background: "#15803d", boxShadow: "none" }} disabled={categoriaGestionLoading}>Guardar</button>
+                            <button onClick={cancelarEdicionCategoria} style={{ ...buttonStyle, padding: "8px 10px", background: "#1e293b", boxShadow: "none" }} disabled={categoriaGestionLoading}>Cancelar</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            <strong style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span>{cat.icono || iconoCategoria(cat.nombre)}</span>
+                              <span>{cat.nombre}</span>
+                            </strong>
+                            <div style={{ color: "#94a3b8", fontSize: 13 }}>{cantidadMovs} movimientos</div>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button onClick={() => iniciarEdicionCategoria(cat)} style={{ ...buttonStyle, padding: "8px 10px", background: "#1d4ed8", boxShadow: "none" }} disabled={categoriaGestionLoading}>✏️ Editar</button>
+                            <button
+                              onClick={() => intentarEliminarCategoria(cat)}
+                              style={{ ...buttonStyle, padding: "8px 10px", background: "#7f1d1d", boxShadow: "none" }}
+                              disabled={categoriaGestionLoading}
+                              title="Eliminar categoría"
+                            >
+                              🗑️ Eliminar categoría
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
