@@ -2598,12 +2598,31 @@ export default function Page() {
                           </label>
                           <label style={{ color: "#cbd5e1", fontSize: 13, display: "grid", gap: 6 }}>
                             Ícono
-                            <select value={categoriaEditIcono} onChange={(e) => setCategoriaEditIcono(e.target.value)} style={inputStyle}>
-                              {EMOJIS_CATEGORIA.map((emoji) => (
-                                <option key={emoji} value={emoji}>{emoji}</option>
-                              ))}
-                            </select>
+                            <input
+                              value={categoriaEditIcono}
+                              onChange={(e) => setCategoriaEditIcono(e.target.value)}
+                              style={inputStyle}
+                              maxLength={4}
+                              placeholder="😀"
+                            />
                           </label>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {EMOJIS_CATEGORIA.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => setCategoriaEditIcono(emoji)}
+                                style={{
+                                  ...buttonStyle,
+                                  padding: "6px 10px",
+                                  background: categoriaEditIcono === emoji ? "#1d4ed8" : "#1e293b",
+                                  boxShadow: "none",
+                                }}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <button onClick={() => guardarEdicionCategoria(cat)} style={{ ...buttonStyle, padding: "8px 10px", background: "#15803d", boxShadow: "none" }} disabled={categoriaGestionLoading}>Guardar</button>
                             <button onClick={cancelarEdicionCategoria} style={{ ...buttonStyle, padding: "8px 10px", background: "#1e293b", boxShadow: "none" }} disabled={categoriaGestionLoading}>Cancelar</button>
