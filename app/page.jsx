@@ -53,6 +53,27 @@ function money(n, currency = "ARS") {
   }).format(Number(n || 0));
 }
 
+function iconoCategoria(nombre) {
+  const n = String(nombre || "").toLowerCase();
+
+  if (n.includes("seguro")) return "🚗";
+  if (n.includes("vacacion") || n.includes("viaje")) return "✈️";
+  if (n.includes("super") || n.includes("mercado") || n.includes("aliment")) return "🛒";
+  if (n.includes("fiesta") || n.includes("salida") || n.includes("ocio")) return "🎉";
+  if (n.includes("combustible") || n.includes("nafta") || n.includes("ypf") || n.includes("shell")) return "⛽";
+  if (n.includes("hogar") || n.includes("casa")) return "🏠";
+  if (n.includes("cuota") || n.includes("tarjeta")) return "💳";
+  if (n.includes("suscrip")) return "📱";
+  if (n.includes("cena") || n.includes("restaurant") || n.includes("restaurante")) return "🍽️";
+  if (n.includes("transporte") || n.includes("peaje")) return "🚕";
+  if (n.includes("salud") || n.includes("farmacia")) return "💊";
+  if (n.includes("educ")) return "🎓";
+  if (n.includes("limpieza")) return "🧹";
+  if (n.includes("sueldo") || n.includes("ingreso")) return "💰";
+
+  return "💸";
+}
+
 const pageStyle = {
   minHeight: "100dvh",
   width: "100%",
@@ -1830,13 +1851,13 @@ export default function Page() {
 
             <div style={{ ...cardStyle, marginBottom: "16px", padding: "14px 16px" }}>
               <div style={{ display: "grid", gap: 8 }}>
-                {porCategoria.slice(0, 5).map((item, idx) => {
+                {porCategoria.slice(0, 5).map((item) => {
                   const total = porCategoria.reduce((acc, cat) => acc + Number(cat.value || 0), 0);
                   const porcentaje = total ? Math.round((item.value / total) * 100) : 0;
                   return (
                     <div key={item.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                        <span style={{ fontSize: 16 }}>{["🍽️", "🎉", "🏠", "🚗", "🛍️"][idx] || "💸"}</span>
+                        <span style={{ fontSize: 16 }}>{iconoCategoria(item.name)}</span>
                         <span style={{ color: "#e2e8f0", fontSize: 14 }}>{item.name}</span>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
