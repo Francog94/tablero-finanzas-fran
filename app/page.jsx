@@ -1807,7 +1807,6 @@ export default function Page() {
             <div style={{ ...cardStyle, marginBottom: "16px", padding: "14px" }}>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={buttonStyle}>Día</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={buttonStyle}>Semana</button>
                 <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={buttonStyle}>Mes</button>
                 <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 4))} style={buttonStyle}>Año</button>
                 <button onClick={setTodos} style={buttonStyle}>Todos</button>
