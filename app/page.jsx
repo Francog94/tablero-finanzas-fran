@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -304,6 +304,7 @@ export default function Page() {
   const [filtroTipo, setFiltroTipo] = useState("Todos");
   const [mesSeleccionado, setMesSeleccionado] = useState("");
   const [tabActiva, setTabActiva] = useState("resumen");
+  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
 
   const [editandoId, setEditandoId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -342,6 +343,49 @@ export default function Page() {
     descripcion: "",
     monto: "",
   });
+  const menuUsuarioRef = useRef(null);
+
+  const nombreMostradoUsuario = useMemo(() => {
+    const metadata = user?.user_metadata || {};
+    const nombre =
+      metadata.full_name ||
+      metadata.name ||
+      metadata.nombre ||
+      metadata.display_name ||
+      "";
+
+    if (String(nombre).trim()) return String(nombre).trim();
+    if (!user?.email) return "Usuario";
+
+    const [alias] = user.email.split("@");
+    return `${alias}@...`;
+  }, [user]);
+
+  const cerrarSesion = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setMovimientos([]);
+    setCategorias([]);
+    setPerfilFinanciero(null);
+    setSaldoInicial("0");
+    setMoneda("ARS");
+    setPerfilError("");
+    setPerfilLoading(false);
+    setMenuUsuarioAbierto(false);
+  };
+
+  useEffect(() => {
+    function manejarClickFuera(event) {
+      if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(event.target)) {
+        setMenuUsuarioAbierto(false);
+      }
+    }
+
+    document.addEventListener("mousedown", manejarClickFuera);
+    return () => {
+      document.removeEventListener("mousedown", manejarClickFuera);
+    };
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -1707,37 +1751,61 @@ export default function Page() {
       `}</style>
 
       <div style={containerStyle} className="app-container">
-                <div
+        <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
             gap: "16px",
-            flexWrap: "wrap",
             marginBottom: "24px",
           }}
         >
-          <div>
-            <h1 style={{ fontSize: "34px", marginBottom: "8px", letterSpacing: "-0.02em" }}>Tablero financiero</h1>
-            <p style={{ color: "#94a3b8", margin: 0 }}>Sesión activa: {user?.email}</p>
-          </div>
+          <h1 style={{ fontSize: "34px", margin: 0, letterSpacing: "-0.02em" }}>Tablero financiero</h1>
 
-          <button
-            style={{ ...buttonStyle, background: "#dc2626" }}
-            onClick={async () => {
-              await supabase.auth.signOut();
-              setUser(null);
-              setMovimientos([]);
-              setCategorias([]);
-              setPerfilFinanciero(null);
-              setSaldoInicial("0");
-              setMoneda("ARS");
-              setPerfilError("");
-              setPerfilLoading(false);
-            }}
-          >
-            Cerrar sesión
-          </button>
+          <div style={{ position: "relative" }} ref={menuUsuarioRef}>
+            <button
+              onClick={() => setMenuUsuarioAbierto((prev) => !prev)}
+              aria-label="Abrir menú de usuario"
+              style={{
+                ...buttonStyle,
+                padding: "10px 12px",
+                minWidth: 44,
+                borderRadius: "12px",
+                background: "#1e293b",
+                border: "1px solid #334155",
+                boxShadow: "none",
+                fontSize: "20px",
+                lineHeight: 1,
+              }}
+            >
+              👤
+            </button>
+
+            {menuUsuarioAbierto && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 10px)",
+                  right: 0,
+                  minWidth: "220px",
+                  background: "#0b1220",
+                  border: "1px solid #263244",
+                  borderRadius: "14px",
+                  boxShadow: "0 10px 30px rgba(2, 6, 23, 0.35)",
+                  overflow: "hidden",
+                  zIndex: 20,
+                }}
+              >
+                <div style={{ padding: "12px 14px", borderBottom: "1px solid #1e293b", color: "#cbd5e1", fontWeight: 600 }}>
+                  {nombreMostradoUsuario}
+                </div>
+                <button onClick={() => setTabActiva("configuracion")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Configuración</button>
+                <button style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Perfil</button>
+                <button onClick={cerrarSesion} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Cerrar sesión</button>
+                <button style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>Eliminar cuenta</button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div
