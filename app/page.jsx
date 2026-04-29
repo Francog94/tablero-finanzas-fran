@@ -53,6 +53,27 @@ function money(n, currency = "ARS") {
   }).format(Number(n || 0));
 }
 
+function iconoCategoria(nombre) {
+  const n = String(nombre || "").toLowerCase();
+
+  if (n.includes("seguro")) return "🚗";
+  if (n.includes("vacacion") || n.includes("viaje")) return "✈️";
+  if (n.includes("super") || n.includes("mercado") || n.includes("aliment")) return "🛒";
+  if (n.includes("fiesta") || n.includes("salida") || n.includes("ocio")) return "🎉";
+  if (n.includes("combustible") || n.includes("nafta") || n.includes("ypf") || n.includes("shell")) return "⛽";
+  if (n.includes("hogar") || n.includes("casa")) return "🏠";
+  if (n.includes("cuota") || n.includes("tarjeta")) return "💳";
+  if (n.includes("suscrip")) return "📱";
+  if (n.includes("cena") || n.includes("restaurant") || n.includes("restaurante")) return "🍽️";
+  if (n.includes("transporte") || n.includes("peaje")) return "🚕";
+  if (n.includes("salud") || n.includes("farmacia")) return "💊";
+  if (n.includes("educ")) return "🎓";
+  if (n.includes("limpieza")) return "🧹";
+  if (n.includes("sueldo") || n.includes("ingreso")) return "💰";
+
+  return "💸";
+}
+
 const pageStyle = {
   minHeight: "100dvh",
   width: "100%",
@@ -67,6 +88,7 @@ const containerStyle = {
   width: "100%",
   maxWidth: "1240px",
   margin: "0 auto",
+  paddingInline: "0",
 };
 
 const cardStyle = {
@@ -84,10 +106,12 @@ const labelStyle = {
 };
 
 const valueStyle = {
-  fontSize: "30px",
+  fontSize: "clamp(24px, 6vw, 30px)",
   fontWeight: 700,
   marginTop: "10px",
   letterSpacing: "-0.02em",
+  lineHeight: 1.2,
+  wordBreak: "break-word",
 };
 
 const inputStyle = {
@@ -126,8 +150,8 @@ function PieChartSimple({ data, currency = "ARS" }) {
   const colores = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
   return (
-    <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-      <svg width="220" height="220" viewBox="0 0 42 42">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "center", width: "100%" }}>
+      <svg width="220" height="220" viewBox="0 0 42 42" style={{ width: "100%", maxWidth: 220, height: "auto" }}>
         {data.map((item, i) => {
           const porcentaje = (item.value / total) * 100;
           const dash = `${porcentaje} ${100 - porcentaje}`;
@@ -150,20 +174,22 @@ function PieChartSimple({ data, currency = "ARS" }) {
         })}
       </svg>
 
-      <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "grid", gap: 8, width: "100%" }}>
         {data.map((item, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 999,
-                background: colores[i % colores.length],
-              }}
-            />
-            <span style={{ color: "#cbd5e1" }}>
-              {item.name}: <strong>{money(item.value, currency)}</strong>
-            </span>
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 999,
+                  background: colores[i % colores.length],
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ color: "#cbd5e1", fontSize: 14 }}>{item.name}</span>
+            </div>
+            <strong style={{ color: "#e2e8f0", fontSize: 14 }}>{money(item.value, currency)}</strong>
           </div>
         ))}
       </div>
@@ -1787,9 +1813,9 @@ export default function Page() {
 
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: "16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
                 marginBottom: "16px",
               }}
             >
@@ -1806,18 +1832,18 @@ export default function Page() {
 
             <div style={{ ...cardStyle, marginBottom: "16px", padding: "14px" }}>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={buttonStyle}>Día</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={buttonStyle}>Semana</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={buttonStyle}>Mes</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 4))} style={buttonStyle}>Año</button>
-                <button onClick={setTodos} style={buttonStyle}>Todos</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Día</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Semana</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Mes</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 4))} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Año</button>
+                <button onClick={setTodos} style={{ ...buttonStyle, flex: "1 1 90px", minWidth: 90, textAlign: "center" }}>Todos</button>
               </div>
             </div>
 
             <div style={{ ...cardStyle, marginBottom: "16px", textAlign: "center" }}>
               <h2 style={{ marginTop: 0, marginBottom: "14px" }}>Gastos por categoría</h2>
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <div style={{ transform: "scale(1.15)", transformOrigin: "center" }}>
+              <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+                <div style={{ width: "100%", maxWidth: 420 }}>
                   <PieChartSimple data={porCategoria} currency={monedaActiva} />
                 </div>
               </div>
@@ -1825,15 +1851,19 @@ export default function Page() {
 
             <div style={{ ...cardStyle, marginBottom: "16px", padding: "14px 16px" }}>
               <div style={{ display: "grid", gap: 8 }}>
-                {porCategoria.slice(0, 5).map((item, idx) => {
+                {porCategoria.slice(0, 5).map((item) => {
                   const total = porCategoria.reduce((acc, cat) => acc + Number(cat.value || 0), 0);
                   const porcentaje = total ? Math.round((item.value / total) * 100) : 0;
                   return (
-                    <div key={item.name} style={{ display: "grid", gridTemplateColumns: "24px 1fr auto auto", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 16 }}>{["🍽️", "🎉", "🏠", "🚗", "🛍️"][idx] || "💸"}</span>
-                      <span style={{ color: "#e2e8f0", fontSize: 14 }}>{item.name}</span>
-                      <span style={{ color: "#94a3b8", fontSize: 13 }}>{porcentaje}%</span>
-                      <strong style={{ fontSize: 14 }}>{money(item.value, monedaActiva)}</strong>
+                    <div key={item.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <span style={{ fontSize: 16 }}>{iconoCategoria(item.name)}</span>
+                        <span style={{ color: "#e2e8f0", fontSize: 14 }}>{item.name}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ color: "#94a3b8", fontSize: 13 }}>{porcentaje}%</span>
+                        <strong style={{ fontSize: 14 }}>{money(item.value, monedaActiva)}</strong>
+                      </div>
                     </div>
                   );
                 })}
