@@ -589,7 +589,19 @@ export default function Page() {
   const neto = totalIngresos - totalGastos;
   const monedaActiva = perfilFinanciero?.moneda || moneda || "ARS";
   const saldoInicialNumero = Number(perfilFinanciero?.saldo_inicial ?? saldoInicial ?? 0);
-  const saldoActual = saldoInicialNumero + totalIngresos - totalGastos;
+  const totalIngresosGlobal = useMemo(() => {
+    return movimientos
+      .filter((m) => m.tipo === "Ingreso")
+      .reduce((acc, m) => acc + Number(m.monto || 0), 0);
+  }, [movimientos]);
+
+  const totalGastosGlobal = useMemo(() => {
+    return movimientos
+      .filter((m) => m.tipo === "Gasto")
+      .reduce((acc, m) => acc + Number(m.monto || 0), 0);
+  }, [movimientos]);
+
+  const saldoActual = saldoInicialNumero + totalIngresosGlobal - totalGastosGlobal;
 
   const porCategoria = useMemo(() => {
     const mapa = {};
