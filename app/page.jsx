@@ -1776,7 +1776,7 @@ export default function Page() {
                 background: "#1e293b",
                 border: "1px solid #334155",
                 boxShadow: "none",
-                fontSize: "16px",
+                fontSize: "18px",
                 lineHeight: 1,
               }}
             >
