@@ -1772,92 +1772,116 @@ export default function Page() {
           <>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "16px",
-                marginBottom: "24px",
+                ...cardStyle,
+                marginBottom: "16px",
+                padding: "22px",
+                borderRadius: "22px",
               }}
             >
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Saldo actual</h3>
-                <div style={{ ...valueStyle, color: saldoActual >= 0 ? "#34d399" : "#f87171" }}>{money(saldoActual, monedaActiva)}</div>
+              <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: "8px" }}>Saldo actual</h3>
+              <div style={{ ...valueStyle, fontSize: "40px", marginTop: 0, color: saldoActual >= 0 ? "#34d399" : "#f87171" }}>
+                {money(saldoActual, monedaActiva)}
               </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Total ingresos</h3>
-                <div style={{ ...valueStyle, color: "#34d399" }}>{money(totalIngresos, monedaActiva)}</div>
-              </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Total gastos</h3>
-                <div style={{ ...valueStyle, color: "#f87171" }}>
-                  {money(totalGastos, monedaActiva)}
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Movimientos</h3>
-                <div style={valueStyle}>{movimientosFiltrados.length}</div>
-              </div>
+              <div style={{ color: "#94a3b8", fontSize: "13px", marginTop: "6px" }}>Saldo total (todos los movimientos)</div>
             </div>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                 gap: "16px",
-                marginBottom: "24px",
+                marginBottom: "16px",
               }}
             >
               <div style={cardStyle}>
-                <h2 style={{ marginTop: 0 }}>Gastos por categoría</h2>
-                <PieChartSimple data={porCategoria} currency={monedaActiva} />
+                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Gastos del período</h3>
+                <div style={{ ...valueStyle, color: "#f87171" }}>{money(totalGastos, monedaActiva)}</div>
               </div>
 
               <div style={cardStyle}>
-                <h2 style={{ marginTop: 0 }}>Ingresos vs gastos</h2>
-                <BarsSimple data={resumenTipo} currency={monedaActiva} />
+                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Ingresos del período</h3>
+                <div style={{ ...valueStyle, color: "#34d399" }}>{money(totalIngresos, monedaActiva)}</div>
               </div>
             </div>
 
-            <div style={{ ...cardStyle, marginBottom: "24px" }}>
-              <h2 style={{ marginTop: 0 }}>Evolución por día</h2>
-              <LineSimple data={porDia} />
+            <div style={{ ...cardStyle, marginBottom: "16px", padding: "14px" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={buttonStyle}>Día</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={buttonStyle}>Semana</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={buttonStyle}>Mes</button>
+                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 4))} style={buttonStyle}>Año</button>
+                <button onClick={setTodos} style={buttonStyle}>Todos</button>
+              </div>
             </div>
 
-            <div style={{ ...cardStyle, marginBottom: "24px" }}>
-              <h2 style={{ marginTop: 0 }}>Resumen del mes</h2>
+            <div style={{ ...cardStyle, marginBottom: "16px", textAlign: "center" }}>
+              <h2 style={{ marginTop: 0, marginBottom: "14px" }}>Gastos por categoría</h2>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <div style={{ transform: "scale(1.15)", transformOrigin: "center" }}>
+                  <PieChartSimple data={porCategoria} currency={monedaActiva} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ ...cardStyle, marginBottom: "16px", padding: "14px 16px" }}>
+              <div style={{ display: "grid", gap: 8 }}>
+                {porCategoria.slice(0, 5).map((item, idx) => {
+                  const total = porCategoria.reduce((acc, cat) => acc + Number(cat.value || 0), 0);
+                  const porcentaje = total ? Math.round((item.value / total) * 100) : 0;
+                  return (
+                    <div key={item.name} style={{ display: "grid", gridTemplateColumns: "24px 1fr auto auto", gap: 10, alignItems: "center" }}>
+                      <span style={{ fontSize: 16 }}>{["🍽️", "🎉", "🏠", "🚗", "🛍️"][idx] || "💸"}</span>
+                      <span style={{ color: "#e2e8f0", fontSize: 14 }}>{item.name}</span>
+                      <span style={{ color: "#94a3b8", fontSize: 13 }}>{porcentaje}%</span>
+                      <strong style={{ fontSize: 14 }}>{money(item.value, monedaActiva)}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ ...cardStyle, marginBottom: "84px", padding: "14px 16px", opacity: 0.9 }}>
+              <h2 style={{ marginTop: 0, marginBottom: "10px", fontSize: "18px" }}>Resumen del mes</h2>
 
               {!resumen ? (
-                <div style={{ color: "#94a3b8" }}>No hay datos</div>
+                <div style={{ color: "#94a3b8", fontSize: 14 }}>No hay datos</div>
               ) : (
-                <div style={{ display: "grid", gap: 10, color: "#cbd5e1" }}>
-                  <div>
-                    📊 Promedio diario de gastos: <strong>{money(resumen.promedio, monedaActiva)}</strong>
-                  </div>
-
-                  {resumen.topCategoria && (
-                    <div>
-                      🏆 Categoría con más gasto: <strong>{resumen.topCategoria[0]} ({money(resumen.topCategoria[1], monedaActiva)})</strong>
-                    </div>
-                  )}
-
-                  {resumen.peorDia && (
-                    <div>
-                      🔥 Día con más gasto: <strong>{resumen.peorDia[0]} ({money(resumen.peorDia[1], monedaActiva)})</strong>
-                    </div>
-                  )}
-
+                <div style={{ display: "grid", gap: 8, color: "#cbd5e1", fontSize: 14 }}>
+                  <div>• Promedio diario: <strong>{money(resumen.promedio, monedaActiva)}</strong></div>
+                  {resumen.peorDia && <div>• Día con más gasto: <strong>{resumen.peorDia[0]} ({money(resumen.peorDia[1], monedaActiva)})</strong></div>}
                   <div>
                     {resumen.estado === "positivo" ? (
-                      <span style={{ color: "#10b981" }}>💰 Estás en superávit</span>
+                      <span style={{ color: "#10b981" }}>• Estado: superávit</span>
                     ) : (
-                      <span style={{ color: "#ef4444" }}>⚠️ Estás en déficit</span>
+                      <span style={{ color: "#ef4444" }}>• Estado: déficit</span>
                     )}
                   </div>
                 </div>
               )}
             </div>
+
+            <button
+              onClick={() => setTabActiva("agregar")}
+              style={{
+                position: "fixed",
+                right: "18px",
+                bottom: "22px",
+                width: "56px",
+                height: "56px",
+                borderRadius: "999px",
+                border: "none",
+                background: "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+                color: "#fff",
+                fontSize: "32px",
+                lineHeight: 1,
+                cursor: "pointer",
+                boxShadow: "0 12px 26px rgba(37, 99, 235, 0.4)",
+                zIndex: 20,
+              }}
+              aria-label="Agregar movimiento"
+            >
+              +
+            </button>
           </>
         )}
 
