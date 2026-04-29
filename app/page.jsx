@@ -45,10 +45,10 @@ if (!supabaseConfigError) {
   }
 }
 
-function money(n) {
+function money(n, currency = "ARS") {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
-    currency: "ARS",
+    currency: currency || "ARS",
     maximumFractionDigits: 2,
   }).format(Number(n || 0));
 }
@@ -115,7 +115,7 @@ const thtdStyle = {
   padding: "12px 8px",
 };
 
-function PieChartSimple({ data }) {
+function PieChartSimple({ data, currency = "ARS" }) {
   const total = data.reduce((a, b) => a + b.value, 0);
   let acumulado = 0;
 
@@ -162,7 +162,7 @@ function PieChartSimple({ data }) {
               }}
             />
             <span style={{ color: "#cbd5e1" }}>
-              {item.name}: <strong>{money(item.value)}</strong>
+              {item.name}: <strong>{money(item.value, currency)}</strong>
             </span>
           </div>
         ))}
@@ -171,7 +171,7 @@ function PieChartSimple({ data }) {
   );
 }
 
-function BarsSimple({ data }) {
+function BarsSimple({ data, currency = "ARS" }) {
   const max = Math.max(...data.map((x) => x.value), 1);
 
   if (!data.length) {
@@ -184,7 +184,7 @@ function BarsSimple({ data }) {
         <div key={i}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>{item.name}</span>
-            <strong>{money(item.value)}</strong>
+            <strong>{money(item.value, currency)}</strong>
           </div>
           <div style={{ height: 10, background: "#1e293b", borderRadius: 999 }}>
             <div
@@ -258,6 +258,13 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
+  const [perfilFinanciero, setPerfilFinanciero] = useState(null);
+  const [saldoInicial, setSaldoInicial] = useState("0");
+  const [moneda, setMoneda] = useState("ARS");
+  const [perfilLoading, setPerfilLoading] = useState(true);
+  const [perfilError, setPerfilError] = useState("");
+  const [perfilSaving, setPerfilSaving] = useState(false);
+
   const [tipo, setTipo] = useState("Gasto");
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [categoria, setCategoria] = useState("");
@@ -323,6 +330,7 @@ export default function Page() {
           await Promise.all([
             cargarMovimientos(data.user.id),
             cargarCategorias(data.user.id),
+            cargarPerfilFinanciero(data.user.id),
           ]);
         }
       } catch (error) {
@@ -339,10 +347,16 @@ export default function Page() {
         setUser(session.user);
         cargarMovimientos(session.user.id);
         cargarCategorias(session.user.id);
+        cargarPerfilFinanciero(session.user.id);
       } else {
         setUser(null);
         setMovimientos([]);
         setCategorias([]);
+        setPerfilFinanciero(null);
+        setSaldoInicial("0");
+        setMoneda("ARS");
+        setPerfilError("");
+        setPerfilLoading(false);
       }
     });
 
@@ -396,6 +410,116 @@ export default function Page() {
     setCategorias(data || []);
   }
 
+  async function cargarPerfilFinanciero(userId) {
+    if (!supabase || !userId) {
+      setPerfilLoading(false);
+      return;
+    }
+
+    setPerfilLoading(true);
+    setPerfilError("");
+
+    const { data, error } = await supabase
+      .from("perfil_financiero")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error cargando perfil financiero:", error);
+      setPerfilError("No se pudo cargar tu perfil financiero. Intentá nuevamente.");
+      setPerfilFinanciero(null);
+      setSaldoInicial("0");
+      setMoneda("ARS");
+      setPerfilLoading(false);
+      return;
+    }
+
+    if (!data) {
+      setPerfilFinanciero(null);
+      setSaldoInicial("0");
+      setMoneda("ARS");
+      setPerfilLoading(false);
+      return;
+    }
+
+    setPerfilFinanciero(data);
+    setSaldoInicial(String(data.saldo_inicial ?? 0));
+    setMoneda(data.moneda || "ARS");
+    setPerfilLoading(false);
+  }
+
+  async function guardarPerfilInicial() {
+    if (!user || perfilSaving) return;
+    setPerfilError("");
+    const saldoNumero = Number(saldoInicial);
+
+    if (!Number.isFinite(saldoNumero)) {
+      setPerfilError("El saldo inicial debe ser un número válido.");
+      return;
+    }
+
+    setPerfilSaving(true);
+    const payload = {
+      user_id: user.id,
+      saldo_inicial: saldoNumero,
+      moneda: moneda || "ARS",
+    };
+
+    const { data, error } = await supabase
+      .from("perfil_financiero")
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error guardando perfil inicial:", error);
+      setPerfilError(`No se pudo guardar el perfil: ${error.message}`);
+      setPerfilSaving(false);
+      return;
+    }
+
+    setPerfilFinanciero(data);
+    setSaldoInicial(String(data.saldo_inicial ?? 0));
+    setMoneda(data.moneda || "ARS");
+    setPerfilSaving(false);
+  }
+
+  async function guardarConfiguracionPerfil() {
+    if (!user || !perfilFinanciero || perfilSaving) return;
+    setPerfilError("");
+    const saldoNumero = Number(saldoInicial);
+
+    if (!Number.isFinite(saldoNumero)) {
+      setPerfilError("El saldo inicial debe ser un número válido.");
+      return;
+    }
+
+    setPerfilSaving(true);
+    const { data, error } = await supabase
+      .from("perfil_financiero")
+      .update({
+        saldo_inicial: saldoNumero,
+        moneda: moneda || "ARS",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error guardando configuración de perfil:", error);
+      setPerfilError(`No se pudo guardar la configuración: ${error.message}`);
+      setPerfilSaving(false);
+      return;
+    }
+
+    setPerfilFinanciero(data);
+    setSaldoInicial(String(data.saldo_inicial ?? 0));
+    setMoneda(data.moneda || "ARS");
+    setPerfilSaving(false);
+  }
+
   async function asegurarCategoria(nombreCategoria) {
     const nombreLimpio = nombreCategoria.trim();
     if (!nombreLimpio || !user) return;
@@ -425,6 +549,7 @@ export default function Page() {
       );
     }
   }
+
   const setMesActual = () => {
     setMesSeleccionado(new Date().toISOString().slice(0, 7));
   };
@@ -438,7 +563,8 @@ export default function Page() {
   const setTodos = () => {
     setMesSeleccionado("");
   };
-    const movimientosFiltrados = useMemo(() => {
+
+  const movimientosFiltrados = useMemo(() => {
     return movimientos.filter((m) => {
       const texto = `${m.categoria || ""} ${m.descripcion || ""}`.toLowerCase();
       const matchTexto = texto.includes(filtroTexto.toLowerCase());
@@ -462,6 +588,22 @@ export default function Page() {
   }, [movimientosFiltrados]);
 
   const neto = totalIngresos - totalGastos;
+  const monedaActiva = perfilFinanciero?.moneda || moneda || "ARS";
+  const saldoInicialNumero = Number(perfilFinanciero?.saldo_inicial ?? saldoInicial ?? 0);
+
+  const totalIngresosGlobal = useMemo(() => {
+    return movimientos
+      .filter((m) => m.tipo === "Ingreso")
+      .reduce((acc, m) => acc + Number(m.monto || 0), 0);
+  }, [movimientos]);
+
+  const totalGastosGlobal = useMemo(() => {
+    return movimientos
+      .filter((m) => m.tipo === "Gasto")
+      .reduce((acc, m) => acc + Number(m.monto || 0), 0);
+  }, [movimientos]);
+
+  const saldoActual = saldoInicialNumero + totalIngresosGlobal - totalGastosGlobal;
 
   const porCategoria = useMemo(() => {
     const mapa = {};
@@ -476,8 +618,7 @@ export default function Page() {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
   }, [movimientosFiltrados]);
-
-  const resumenTipo = [
+    const resumenTipo = [
     { name: "Gastos", value: totalGastos },
     { name: "Ingresos", value: totalIngresos },
   ];
@@ -782,7 +923,8 @@ export default function Page() {
             ? `20${anioRaw}`
             : `19${anioRaw}`
           : anioRaw;
-                if (mes) {
+
+      if (mes) {
         linea = linea.replace(matchMesTexto[0], "").trim();
         return {
           fechaDetectada: `${anio}-${mes}-${dia}`,
@@ -1035,8 +1177,7 @@ export default function Page() {
     setCargaRapidaPreview([]);
     setCargaRapidaSaving(false);
   }
-
-  function procesarImportarResumen() {
+    function procesarImportarResumen() {
     setImportarResumenError("");
     setImportarResumenSuccess("");
     if (importarResumenUsarFechaPago && !importarResumenFechaPago) {
@@ -1244,7 +1385,8 @@ export default function Page() {
     setCategoriaDestinoReasignacion("");
     setCategoriaGestionLoading(false);
   }
-    async function autenticar(modo) {
+
+  async function autenticar(modo) {
     if (authLoading) return;
     setAuthError("");
     if (!supabase) {
@@ -1283,6 +1425,7 @@ export default function Page() {
         await Promise.all([
           cargarMovimientos(data.user.id),
           cargarCategorias(data.user.id),
+          cargarPerfilFinanciero(data.user.id),
         ]);
         setAuthEmail("");
         setAuthPassword("");
@@ -1386,6 +1529,43 @@ export default function Page() {
     );
   }
 
+  if (!perfilLoading && user && !perfilFinanciero) {
+    return (
+      <main style={pageStyle} className="app-shell">
+        <div style={containerStyle}>
+          <div style={{ ...cardStyle, maxWidth: 680, margin: "40px auto" }}>
+            <h1 style={{ marginTop: 0 }}>Configurá tu saldo inicial</h1>
+            <p style={{ color: "#94a3b8" }}>
+              Indicá cuánto dinero tenés actualmente como punto de partida.
+            </p>
+            {perfilError && <p style={{ color: "#fca5a5" }}>{perfilError}</p>}
+            <div style={{ display: "grid", gap: 12 }}>
+              <label style={{ color: "#cbd5e1", display: "grid", gap: 6 }}>
+                Saldo inicial
+                <input
+                  type="number"
+                  value={saldoInicial}
+                  onChange={(e) => setSaldoInicial(e.target.value)}
+                  style={inputStyle}
+                  placeholder="0"
+                />
+              </label>
+              <label style={{ color: "#cbd5e1", display: "grid", gap: 6 }}>
+                Moneda
+                <input value="ARS" readOnly style={{ ...inputStyle, opacity: 0.85 }} />
+              </label>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <button onClick={guardarPerfilInicial} style={buttonStyle} disabled={perfilSaving}>
+                {perfilSaving ? "Guardando..." : "Guardar y entrar al tablero"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main style={pageStyle} className="app-shell">
       <style>{`
@@ -1443,583 +1623,16 @@ export default function Page() {
               setUser(null);
               setMovimientos([]);
               setCategorias([]);
+              setPerfilFinanciero(null);
+              setSaldoInicial("0");
+              setMoneda("ARS");
+              setPerfilError("");
+              setPerfilLoading(false);
             }}
           >
             Cerrar sesión
           </button>
         </div>
-
-        <div
-          style={{
-            ...cardStyle,
-            marginBottom: "24px",
-            padding: "12px",
-            background: "linear-gradient(180deg, #0f172a 0%, #0b1220 100%)",
-          }}
-        >
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-            <button
-              onClick={() => setTabActiva("resumen")}
-              style={{
-                ...buttonStyle,
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background:
-                  tabActiva === "resumen"
-                    ? "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)"
-                    : "#1e293b",
-                border: tabActiva === "resumen" ? "1px solid #60a5fa" : "1px solid #334155",
-                boxShadow:
-                  tabActiva === "resumen" ? "0 8px 20px rgba(37, 99, 235, 0.28)" : "none",
-                color: "#ffffff",
-              }}
-            >
-              Resumen
-            </button>
-            <button
-              onClick={() => setTabActiva("movimientos")}
-              style={{
-                ...buttonStyle,
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background:
-                  tabActiva === "movimientos"
-                    ? "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)"
-                    : "#1e293b",
-                border: tabActiva === "movimientos" ? "1px solid #60a5fa" : "1px solid #334155",
-                boxShadow:
-                  tabActiva === "movimientos" ? "0 8px 20px rgba(37, 99, 235, 0.28)" : "none",
-                color: "#ffffff",
-              }}
-            >
-              Movimientos
-            </button>
-            <button
-              onClick={() => setTabActiva("agregar")}
-              style={{
-                ...buttonStyle,
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background:
-                  tabActiva === "agregar"
-                    ? "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)"
-                    : "#1e293b",
-                border: tabActiva === "agregar" ? "1px solid #60a5fa" : "1px solid #334155",
-                boxShadow:
-                  tabActiva === "agregar" ? "0 8px 20px rgba(37, 99, 235, 0.28)" : "none",
-                color: "#ffffff",
-              }}
-            >
-              Agregar
-            </button>
-            <button
-              onClick={() => setTabActiva("importar")}
-              style={{
-                ...buttonStyle,
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background:
-                  tabActiva === "importar"
-                    ? "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)"
-                    : "#1e293b",
-                border: tabActiva === "importar" ? "1px solid #60a5fa" : "1px solid #334155",
-                boxShadow:
-                  tabActiva === "importar" ? "0 8px 20px rgba(37, 99, 235, 0.28)" : "none",
-                color: "#ffffff",
-              }}
-            >
-              Importar
-            </button>
-            <button
-              onClick={() => setTabActiva("categorias")}
-              style={{
-                ...buttonStyle,
-                padding: "10px 14px",
-                borderRadius: "10px",
-                background:
-                  tabActiva === "categorias"
-                    ? "linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)"
-                    : "#1e293b",
-                border: tabActiva === "categorias" ? "1px solid #60a5fa" : "1px solid #334155",
-                boxShadow:
-                  tabActiva === "categorias" ? "0 8px 20px rgba(37, 99, 235, 0.28)" : "none",
-                color: "#ffffff",
-              }}
-            >
-              Categorías
-            </button>
-          </div>
-        </div>
-
-        {tabActiva === "resumen" && (
-          <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "16px",
-                marginBottom: "24px",
-              }}
-            >
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Total gastos</h3>
-                <div style={{ ...valueStyle, color: "#f87171" }}>{money(totalGastos)}</div>
-              </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Total ingresos</h3>
-                <div style={{ ...valueStyle, color: "#34d399" }}>{money(totalIngresos)}</div>
-              </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Neto</h3>
-                <div style={{ ...valueStyle, color: neto >= 0 ? "#34d399" : "#f87171" }}>
-                  {money(neto)}
-                </div>
-              </div>
-
-              <div style={cardStyle}>
-                <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em" }}>Movimientos</h3>
-                <div style={valueStyle}>{movimientosFiltrados.length}</div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                gap: "16px",
-                marginBottom: "24px",
-              }}
-            >
-              <div style={cardStyle}>
-                <h2 style={{ marginTop: 0 }}>Gastos por categoría</h2>
-                <PieChartSimple data={porCategoria} />
-              </div>
-
-              <div style={cardStyle}>
-                <h2 style={{ marginTop: 0 }}>Ingresos vs gastos</h2>
-                <BarsSimple data={resumenTipo} />
-              </div>
-            </div>
-
-            <div style={{ ...cardStyle, marginBottom: "24px" }}>
-              <h2 style={{ marginTop: 0 }}>Evolución por día</h2>
-              <LineSimple data={porDia} />
-            </div>
-
-            <div style={{ ...cardStyle, marginBottom: "24px" }}>
-              <h2 style={{ marginTop: 0 }}>Resumen del mes</h2>
-
-              {!resumen ? (
-                <div style={{ color: "#94a3b8" }}>No hay datos</div>
-              ) : (
-                <div style={{ display: "grid", gap: 10, color: "#cbd5e1" }}>
-                  <div>
-                    📊 Promedio diario de gastos: <strong>{money(resumen.promedio)}</strong>
-                  </div>
-
-                  {resumen.topCategoria && (
-                    <div>
-                      🏆 Categoría con más gasto: <strong>{resumen.topCategoria[0]} ({money(resumen.topCategoria[1])})</strong>
-                    </div>
-                  )}
-
-                  {resumen.peorDia && (
-                    <div>
-                      🔥 Día con más gasto: <strong>{resumen.peorDia[0]} ({money(resumen.peorDia[1])})</strong>
-                    </div>
-                  )}
-
-                  <div>
-                    {resumen.estado === "positivo" ? (
-                      <span style={{ color: "#10b981" }}>💰 Estás en superávit</span>
-                    ) : (
-                      <span style={{ color: "#ef4444" }}>⚠️ Estás en déficit</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {tabActiva === "movimientos" && (
-          <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "12px",
-                flexWrap: "wrap",
-                marginBottom: "16px",
-              }}
-            >
-              <h2 style={{ marginTop: 0, marginBottom: 0 }}>Movimientos</h2>
-
-              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                <input
-                  type="month"
-                  value={mesSeleccionado}
-                  onChange={(e) => setMesSeleccionado(e.target.value)}
-                  style={{ ...inputStyle, minWidth: 180 }}
-                />
-
-                <input
-                  placeholder="Buscar"
-                  value={filtroTexto}
-                  onChange={(e) => setFiltroTexto(e.target.value)}
-                  style={{ ...inputStyle, minWidth: 220 }}
-                />
-
-                <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} style={{ ...inputStyle, minWidth: 160 }}>
-                  <option value="Todos">Todos</option>
-                  <option value="Gasto">Gasto</option>
-                  <option value="Ingreso">Ingreso</option>
-                </select>
-
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  <button onClick={setMesActual} style={buttonStyle}>Este mes</button>
-                  <button onClick={setMesAnterior} style={buttonStyle}>Mes pasado</button>
-                  <button onClick={setTodos} style={buttonStyle}>Todos</button>
-                  <button onClick={exportarCsv} style={{ ...buttonStyle, background: "#0f766e" }}>
-                    Exportar CSV
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {loading ? (
-              <p style={{ color: "#94a3b8" }}>Cargando movimientos...</p>
-            ) : (
-              <>
-                <div className="desktop-table" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                  <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr style={{ textAlign: "left", color: "#94a3b8", borderBottom: "1px solid #334155" }}>
-                        <th style={thtdStyle}>Fecha</th>
-                        <th style={thtdStyle}>Tipo</th>
-                        <th style={thtdStyle}>Categoría</th>
-                        <th style={thtdStyle}>Descripción</th>
-                        <th style={thtdStyle}>Monto</th>
-                        <th style={thtdStyle}>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {movimientosFiltrados.map((m) => (
-                        <tr key={m.id} style={{ borderTop: "1px solid #1e293b" }}>
-                          <td style={thtdStyle}>
-                            {editandoId === m.id ? (
-                              <input type="date" value={editData.fecha} onChange={(e) => setEditData({ ...editData, fecha: e.target.value })} style={inputStyle} />
-                            ) : (
-                              m.fecha
-                            )}
-                          </td>
-
-                          <td style={thtdStyle}>
-                            {editandoId === m.id ? (
-                              <select value={editData.tipo} onChange={(e) => setEditData({ ...editData, tipo: e.target.value })} style={inputStyle}>
-                                <option value="Gasto">Gasto</option>
-                                <option value="Ingreso">Ingreso</option>
-                              </select>
-                            ) : (
-                              m.tipo
-                            )}
-                          </td>
-
-                          <td style={thtdStyle}>
-                            {editandoId === m.id ? (
-                              <select value={editData.categoria} onChange={(e) => setEditData({ ...editData, categoria: e.target.value })} style={inputStyle}>
-                                <option value="">Categoría</option>
-                                {categorias.map((cat) => (
-                                  <option key={cat.id} value={cat.nombre}>
-                                    {cat.nombre}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              m.categoria
-                            )}
-                          </td>
-
-                          <td style={thtdStyle}>
-                            {editandoId === m.id ? (
-                              <input value={editData.descripcion} onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })} style={inputStyle} />
-                            ) : (
-                              m.descripcion
-                            )}
-                          </td>
-
-                          <td style={thtdStyle}>
-                            {editandoId === m.id ? (
-                              <input type="number" value={editData.monto} onChange={(e) => setEditData({ ...editData, monto: e.target.value })} style={inputStyle} />
-                            ) : (
-                              money(m.monto)
-                            )}
-                          </td>
-
-                          <td style={thtdStyle}>
-                            {editandoId === m.id ? (
-                              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                                <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>
-                                  {saving ? "Guardando..." : "Guardar"}
-                                </button>
-                                <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>
-                                  Cancelar
-                                </button>
-                              </div>
-                            ) : (
-                              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                                <button onClick={() => iniciarEdicion(m)} style={{ ...buttonStyle, background: "#1d4ed8" }}>
-                                  Editar
-                                </button>
-                                <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>
-                                  Borrar
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-
-                      {movimientosFiltrados.length === 0 && (
-                        <tr>
-                          <td colSpan="6" style={{ ...thtdStyle, textAlign: "center", color: "#94a3b8" }}>
-                            No hay movimientos para mostrar.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mobile-cards">
-                  {movimientosFiltrados.map((m) => (
-                    <div key={m.id} style={{ ...cardStyle, padding: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                      {editandoId === m.id ? (
-                        <>
-                          <input type="date" value={editData.fecha} onChange={(e) => setEditData({ ...editData, fecha: e.target.value })} style={inputStyle} />
-                          <select value={editData.tipo} onChange={(e) => setEditData({ ...editData, tipo: e.target.value })} style={inputStyle}>
-                            <option value="Gasto">Gasto</option>
-                            <option value="Ingreso">Ingreso</option>
-                          </select>
-                          <select value={editData.categoria} onChange={(e) => setEditData({ ...editData, categoria: e.target.value })} style={inputStyle}>
-                            <option value="">Categoría</option>
-                            {categorias.map((cat) => (
-                              <option key={cat.id} value={cat.nombre}>
-                                {cat.nombre}
-                              </option>
-                            ))}
-                          </select>
-                          <input value={editData.descripcion} onChange={(e) => setEditData({ ...editData, descripcion: e.target.value })} style={inputStyle} />
-                          <input type="number" value={editData.monto} onChange={(e) => setEditData({ ...editData, monto: e.target.value })} style={inputStyle} />
-                          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                            <button onClick={guardarEdicion} style={{ ...buttonStyle, background: "#15803d" }}>{saving ? "Guardando..." : "Guardar"}</button>
-                            <button onClick={() => setEditandoId(null)} style={{ ...buttonStyle, background: "#475569" }}>Cancelar</button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <strong>{m.categoria}</strong>
-                            <span style={{ color: "#94a3b8" }}>{m.tipo}</span>
-                          </div>
-                          <div style={{ color: "#94a3b8" }}>{m.descripcion}</div>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span>{m.fecha}</span>
-                            <strong>{money(m.monto)}</strong>
-                          </div>
-                          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                            <button onClick={() => iniciarEdicion(m)} style={buttonStyle}>Editar</button>
-                            <button onClick={() => borrarMovimiento(m.id)} style={{ ...buttonStyle, background: "#7f1d1d" }}>Borrar</button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {tabActiva === "agregar" && (
-          <>
-            <div style={{ ...cardStyle, marginBottom: "24px" }}>
-              <h2 style={{ marginTop: 0 }}>Agregar movimiento</h2>
-              {errorMsg && <p style={{ color: "#fca5a5", marginTop: 0 }}>{errorMsg}</p>}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
-                <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={inputStyle}>
-                  <option value="Gasto">Gasto</option>
-                  <option value="Ingreso">Ingreso</option>
-                </select>
-                <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} style={inputStyle} />
-                <select value={categoria} onChange={(e) => { const value = e.target.value; if (value === "__nueva__") { const nueva = prompt("Nombre de la nueva categoría:"); if (nueva && nueva.trim()) setCategoria(nueva.trim()); return; } setCategoria(value); }} style={inputStyle}>
-                  <option value="">Categoría</option>
-                  {categorias.map((cat) => (<option key={cat.id} value={cat.nombre}>{cat.nombre}</option>))}
-                  <option value="__nueva__">+ Nueva categoría</option>
-                </select>
-                <input placeholder="Descripción" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} style={inputStyle} />
-                <input type="number" placeholder="Monto" value={monto} onChange={(e) => setMonto(e.target.value)} style={inputStyle} />
-              </div>
-              <div style={{ marginTop: "16px" }}>
-                <button onClick={agregarMovimiento} style={buttonStyle} disabled={saving}>{saving ? "Guardando..." : "Agregar"}</button>
-              </div>
-            </div>
-                        <div style={{ ...cardStyle, marginBottom: "24px" }}>
-              <h2 style={{ marginTop: 0 }}>Carga rápida</h2>
-              <p style={{ color: "#94a3b8", marginTop: 0 }}>Pegá texto libre, una línea por movimiento. Podés incluir fecha y monto en formatos simples.</p>
-              {cargaRapidaError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{cargaRapidaError}</p>}
-              {cargaRapidaSuccess && <p style={{ color: "#86efac", marginTop: 0 }}>{cargaRapidaSuccess}</p>}
-
-              <textarea value={cargaRapidaTexto} onChange={(e) => setCargaRapidaTexto(e.target.value)} placeholder={`hoy supermercado 12500\nayer combustible 30000\n16/04 peaje 4177,19\nsueldo abril 2800000`} style={{ ...inputStyle, minHeight: 130, resize: "vertical", fontFamily: "inherit" }} />
-              <p style={{ color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>Revisá la previsualización antes de guardar. Nada se carga automáticamente.</p>
-
-              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={procesarCargaRapida} style={buttonStyle}>Procesar</button>
-                <button onClick={() => setCargaRapidaPreview([])} style={{ ...buttonStyle, background: "#475569", boxShadow: "none" }}>Limpiar previsualización</button>
-              </div>
-
-              {cargaRapidaPreview.length > 0 && (
-                <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-                  <h3 style={{ margin: 0 }}>Previsualización editable ({cargaRapidaPreview.length})</h3>
-                  {cargaRapidaPreview.map((fila) => (
-                    <div key={fila.tempId} style={{ border: "1px solid #334155", borderRadius: 12, padding: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
-                      <input type="date" value={fila.fecha} onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "fecha", e.target.value)} style={inputStyle} />
-                      <select value={fila.tipo} onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "tipo", e.target.value)} style={inputStyle}>
-                        <option value="Gasto">Gasto</option>
-                        <option value="Ingreso">Ingreso</option>
-                      </select>
-                      <input value={fila.categoria} onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "categoria", e.target.value)} style={inputStyle} placeholder="Categoría" />
-                      <input value={fila.descripcion} onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "descripcion", e.target.value)} style={inputStyle} placeholder="Descripción" />
-                      <input type="number" value={fila.monto} onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "monto", e.target.value)} style={inputStyle} placeholder="Monto" />
-                      <input value={fila.medio_pago || ""} onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "medio_pago", e.target.value)} style={inputStyle} placeholder="Medio de pago (opcional)" />
-                      <input value={fila.cuotas || ""} onChange={(e) => actualizarFilaCargaRapida(fila.tempId, "cuotas", e.target.value)} style={inputStyle} placeholder="Cuotas (opcional)" />
-                    </div>
-                  ))}
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button onClick={confirmarCargaRapida} style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)" }} disabled={cargaRapidaSaving}>
-                      {cargaRapidaSaving ? "Guardando..." : "Confirmar y guardar"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {tabActiva === "importar" && (
-          <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2 style={{ marginTop: 0 }}>Importar resumen</h2>
-            <p style={{ color: "#94a3b8", marginTop: 0 }}>Pegá movimientos copiados desde banco, tarjeta o billetera virtual para procesarlos en bloque.</p>
-            {importarResumenError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{importarResumenError}</p>}
-            {importarResumenSuccess && <p style={{ color: "#86efac", marginTop: 0 }}>{importarResumenSuccess}</p>}
-
-            <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
-              <label style={{ display: "flex", gap: 8, alignItems: "center", color: "#cbd5e1" }}>
-                <input type="checkbox" checked={importarResumenUsarFechaPago} onChange={(e) => setImportarResumenUsarFechaPago(e.target.checked)} />
-                Usar fecha del resumen (recomendado)
-              </label>
-              <label style={{ color: "#cbd5e1", display: "grid", gap: 6 }}>
-                Fecha de pago del resumen
-                <input type="date" value={importarResumenFechaPago} onChange={(e) => setImportarResumenFechaPago(e.target.value)} style={inputStyle} disabled={!importarResumenUsarFechaPago} />
-              </label>
-              {importarResumenUsarFechaPago ? (
-                <p style={{ color: "#93c5fd", margin: 0 }}>Los movimientos se guardarán con fecha: {formatearFecha(importarResumenFechaPago)}</p>
-              ) : (
-                <p style={{ color: "#94a3b8", margin: 0 }}>Se usará la fecha original detectada en cada línea del resumen.</p>
-              )}
-            </div>
-
-            <textarea value={importarResumenTexto} onChange={(e) => setImportarResumenTexto(e.target.value)} placeholder={`16/04/2026 SUPERMERCADO 84.200,00\n17/04/2026 COMBUSTIBLE 35.500,50\n18/04/2026 SUSCRIPCION 3.490,00\n19/04/2026 TRANSFERENCIA RECIBIDA 50.000,00`} style={{ ...inputStyle, minHeight: 130, resize: "vertical", fontFamily: "inherit" }} />
-            <p style={{ color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>Revisá la previsualización antes de guardar. Nada se carga automáticamente.</p>
-
-            <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={procesarImportarResumen} style={buttonStyle}>Procesar resumen</button>
-              <button onClick={() => setImportarResumenPreview([])} style={{ ...buttonStyle, background: "#475569", boxShadow: "none" }}>Limpiar previsualización</button>
-            </div>
-
-            {importarResumenPreview.length > 0 && (
-              <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-                <h3 style={{ margin: 0 }}>Previsualización editable ({importarResumenPreview.length})</h3>
-                {importarResumenPreview.map((fila) => (
-                  <div key={fila.tempId} style={{ border: "1px solid #334155", borderRadius: 12, padding: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
-                    <input type="date" value={fila.fecha} onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "fecha", e.target.value)} style={inputStyle} disabled={importarResumenUsarFechaPago} />
-                    <select value={fila.tipo} onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "tipo", e.target.value)} style={inputStyle}>
-                      <option value="Gasto">Gasto</option>
-                      <option value="Ingreso">Ingreso</option>
-                    </select>
-                    <input value={fila.categoria} onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "categoria", e.target.value)} style={inputStyle} placeholder="Categoría" />
-                    <input value={fila.descripcion} onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "descripcion", e.target.value)} style={inputStyle} placeholder="Descripción" />
-                    <input type="number" value={fila.monto} onChange={(e) => actualizarFilaImportarResumen(fila.tempId, "monto", e.target.value)} style={inputStyle} placeholder="Monto" />
-                  </div>
-                ))}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button onClick={confirmarImportarResumen} style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)" }} disabled={importarResumenSaving}>
-                    {importarResumenSaving ? "Guardando..." : "Confirmar y guardar"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {tabActiva === "categorias" && (
-          <div style={{ ...cardStyle, marginBottom: "24px" }}>
-            <h2 style={{ marginTop: 0 }}>Gestión de categorías</h2>
-            <p style={{ color: "#94a3b8", marginTop: 0 }}>Podés eliminar categorías. Si tienen movimientos asociados, primero tenés que reasignarlos.</p>
-            {categoriaGestionError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{categoriaGestionError}</p>}
-            {categoriaGestionMsg && <p style={{ color: "#86efac", marginTop: 0 }}>{categoriaGestionMsg}</p>}
-            {categorias.length === 0 ? (
-              <p style={{ color: "#94a3b8", marginBottom: 0 }}>No hay categorías creadas todavía.</p>
-            ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                {categorias.map((cat) => {
-                  const cantidadMovs = movimientos.filter((m) => m.categoria === cat.nombre).length;
-                  return (
-                    <div key={cat.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, border: "1px solid #334155", borderRadius: 10, padding: "10px 12px" }}>
-                      <div>
-                        <strong>{cat.nombre}</strong>
-                        <div style={{ color: "#94a3b8", fontSize: 13 }}>{cantidadMovs} movimientos</div>
-                      </div>
-                      <button onClick={() => intentarEliminarCategoria(cat)} style={{ ...buttonStyle, padding: "8px 10px", background: "#7f1d1d", boxShadow: "none" }} disabled={categoriaGestionLoading} title="Eliminar categoría">
-                        🗑️ Eliminar categoría
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {categoriaEliminando && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(2, 6, 23, 0.78)", display: "grid", placeItems: "center", zIndex: 50, padding: 16 }}>
-            <div style={{ ...cardStyle, width: "100%", maxWidth: 560 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 8 }}>Esta categoría tiene movimientos asociados</h3>
-              <p style={{ color: "#cbd5e1", marginTop: 0 }}>
-                La categoría <strong>{categoriaEliminando.nombre}</strong> tiene{" "}
-                <strong>{categoriaEliminando.movimientosAsociados}</strong> movimientos.
-              </p>
-              <p style={{ color: "#cbd5e1", marginTop: 0 }}>Seleccioná a qué categoría querés moverlos antes de eliminar.</p>
-              <select value={categoriaDestinoReasignacion} onChange={(e) => setCategoriaDestinoReasignacion(e.target.value)} style={inputStyle}>
-                <option value="">Seleccioná categoría de destino</option>
-                {categorias.filter((c) => c.id !== categoriaEliminando.id).map((cat) => (
-                  <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
-                ))}
-              </select>
-              <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-                <button onClick={confirmarReasignarYEliminarCategoria} style={{ ...buttonStyle, background: "#7f1d1d", boxShadow: "none" }} disabled={categoriaGestionLoading}>
-                  {categoriaGestionLoading ? "Procesando..." : "Reasignar y eliminar categoría"}
-                </button>
-                <button onClick={() => { setCategoriaEliminando(null); setCategoriaDestinoReasignacion(""); }} style={{ ...buttonStyle, background: "#475569", boxShadow: "none" }} disabled={categoriaGestionLoading}>
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
     </main>
   );
