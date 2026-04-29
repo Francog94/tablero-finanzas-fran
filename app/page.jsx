@@ -53,6 +53,28 @@ function money(n, currency = "ARS") {
   }).format(Number(n || 0));
 }
 
+
+function iconoCategoria(nombre) {
+  const n = String(nombre || "").toLowerCase();
+
+  if (n.includes("seguro")) return "🚗";
+  if (n.includes("vacacion") || n.includes("viaje")) return "✈️";
+  if (n.includes("super") || n.includes("mercado") || n.includes("aliment")) return "🛒";
+  if (n.includes("fiesta") || n.includes("salida") || n.includes("ocio")) return "🎉";
+  if (n.includes("combustible") || n.includes("nafta") || n.includes("ypf") || n.includes("shell")) return "⛽";
+  if (n.includes("hogar") || n.includes("casa")) return "🏠";
+  if (n.includes("cuota") || n.includes("tarjeta")) return "💳";
+  if (n.includes("suscrip")) return "📱";
+  if (n.includes("cena") || n.includes("restaurant") || n.includes("restaurante")) return "🍽️";
+  if (n.includes("transporte") || n.includes("peaje")) return "🚕";
+  if (n.includes("salud") || n.includes("farmacia")) return "💊";
+  if (n.includes("educ")) return "🎓";
+  if (n.includes("limpieza")) return "🧹";
+  if (n.includes("sueldo") || n.includes("ingreso")) return "💰";
+
+  return "💸";
+}
+
 const pageStyle = {
   minHeight: "100dvh",
   width: "100%",
@@ -1830,7 +1852,7 @@ export default function Page() {
                   const porcentaje = total ? Math.round((item.value / total) * 100) : 0;
                   return (
                     <div key={item.name} style={{ display: "grid", gridTemplateColumns: "24px 1fr auto auto", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 16 }}>{["🍽️", "🎉", "🏠", "🚗", "🛍️"][idx] || "💸"}</span>
+                      <span style={{ fontSize: 16 }}>{iconoCategoria(item.name)}</span>
                       <span style={{ color: "#e2e8f0", fontSize: 14 }}>{item.name}</span>
                       <span style={{ color: "#94a3b8", fontSize: 13 }}>{porcentaje}%</span>
                       <strong style={{ fontSize: 14 }}>{money(item.value, monedaActiva)}</strong>
