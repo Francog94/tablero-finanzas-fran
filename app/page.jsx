@@ -369,6 +369,7 @@ export default function Page() {
   });
   const menuUsuarioRef = useRef(null);
   const menuNavegacionRef = useRef(null);
+  const comprobanteInputRef = useRef(null);
 
   const nombreMostradoUsuario = useMemo(
     () => usuarioVisible(user, perfilFinanciero),
@@ -1108,6 +1109,24 @@ export default function Page() {
     setComprobanteDraft((prev) => ({ ...prev, [field]: value }));
   }
 
+  function limpiarComprobanteCargado() {
+    if (comprobantePreviewUrl) URL.revokeObjectURL(comprobantePreviewUrl);
+    setComprobanteImagen(null);
+    setComprobantePreviewUrl("");
+    setComprobanteError("");
+    setComprobanteInfo("");
+    setComprobanteDraft({
+      fecha: new Date().toISOString().slice(0, 10),
+      tipo: "Gasto",
+      categoria: "",
+      descripcion: "",
+      monto: "",
+    });
+    if (comprobanteInputRef.current) {
+      comprobanteInputRef.current.value = "";
+    }
+  }
+
   async function guardarMovimientoDesdeComprobante() {
     if (!user || comprobanteSaving) return;
     setComprobanteError("");
@@ -1137,6 +1156,7 @@ export default function Page() {
       setMovimientos((prev) => [data[0], ...prev]);
     }
     await asegurarCategoria(categoriaLimpia);
+    limpiarComprobanteCargado();
     if (comprobantePreviewUrl) URL.revokeObjectURL(comprobantePreviewUrl);
     setComprobanteImagen(null);
     setComprobantePreviewUrl("");
@@ -2766,6 +2786,7 @@ export default function Page() {
                     type="file"
                     accept="image/*"
                     capture="environment"
+                    ref={comprobanteInputRef}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       procesarImagenComprobante(file);
