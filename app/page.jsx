@@ -1092,17 +1092,14 @@ export default function Page() {
     setComprobanteImagen(file);
     setComprobantePreviewUrl(url);
 
-    // Punto de integración futuro: aquí irá OCR/IA para extraer fecha, comercio, monto y tipo en base a la imagen.
-    const categoriaSugerida = sugerirCategoriaPorTexto(file.name);
-    const descripcionSugerida = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
     setComprobanteDraft({
       fecha: new Date().toISOString().slice(0, 10),
       tipo: "Gasto",
-      categoria: categoriaSugerida,
-      descripcion: descripcionSugerida || "Comprobante",
+      categoria: "",
+      descripcion: "Comprobante",
       monto: "",
     });
-    setComprobanteInfo("Imagen cargada. OCR pendiente de integrar.");
+    setComprobanteInfo("Imagen cargada. Completá los datos manualmente por ahora.");
   }
 
   function actualizarComprobante(field, value) {
