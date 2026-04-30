@@ -1914,11 +1914,10 @@ export default function Page() {
                 <div style={{ padding: "12px 14px", borderBottom: "1px solid #1e293b", color: "#cbd5e1", fontWeight: 600 }}>
                   {nombreMostradoUsuario}
                 </div>
-                <button onClick={() => navegarA("configuracion")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Configuración</button>
-                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Perfil</button>
-                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); borrarTodosMisDatos(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#fca5a5", cursor: "pointer" }}>Borrar todos mis datos</button>
-                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); cerrarSesion(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Cerrar sesión</button>
-                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); prepararEliminacionCuenta(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>Eliminar cuenta</button>
+                <button onClick={() => navegarA("ajustes")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>⚙️ Ajustes</button>
+                <button onClick={() => navegarA("configuracion")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>💰 Saldo inicial</button>
+                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); cerrarSesion(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>🚪 Cerrar sesión</button>
+                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); prepararEliminacionCuenta(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>🗑️ Eliminar cuenta</button>
               </div>
             )}
           </div>
@@ -2098,7 +2097,7 @@ export default function Page() {
                 color: "#ffffff",
               }}
             >
-              Configuración
+              Saldo inicial
             </button>
           </div>
         </div>
@@ -2963,9 +2962,41 @@ export default function Page() {
           </div>
         )}
 
+        {tabActiva === "ajustes" && (
+          <div style={{ ...cardStyle, marginBottom: "24px", maxWidth: 700 }}>
+            <h2 style={{ marginTop: 0 }}>Ajustes de usuario</h2>
+            <p style={{ color: "#94a3b8", marginTop: 0 }}>
+              Configurá tu alias visible y administrá la privacidad de tu cuenta.
+            </p>
+            <div style={{ display: "grid", gap: 12, maxWidth: 420 }}>
+              <label style={{ color: "#cbd5e1", display: "grid", gap: 6 }}>
+                Alias / apodo
+                <input
+                  type="text"
+                  placeholder="Fran"
+                  value={aliasPerfil}
+                  onChange={(e) => setAliasPerfil(e.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+            </div>
+            <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={guardarConfiguracionPerfil} style={buttonStyle} disabled={perfilSaving || !perfilFinanciero}>
+                {perfilSaving ? "Guardando..." : "Guardar alias"}
+              </button>
+              <button onClick={borrarTodosMisDatos} style={{ ...buttonStyle, background: "#7f1d1d", boxShadow: "none" }} disabled={perfilSaving}>
+                {perfilSaving ? "Procesando..." : "Borrar todos mis datos"}
+              </button>
+              <button onClick={prepararEliminacionCuenta} style={{ ...buttonStyle, background: "#991b1b", boxShadow: "none" }} disabled={perfilSaving}>
+                Eliminar cuenta
+              </button>
+            </div>
+          </div>
+        )}
+
         {tabActiva === "configuracion" && (
           <div style={{ ...cardStyle, marginBottom: "24px", maxWidth: 700 }}>
-            <h2 style={{ marginTop: 0 }}>Configuración financiera</h2>
+            <h2 style={{ marginTop: 0 }}>Saldo inicial</h2>
             <p style={{ color: "#94a3b8", marginTop: 0 }}>
               Ajustá tu saldo inicial y moneda para que el tablero refleje tu punto de partida real.
             </p>
@@ -2991,16 +3022,6 @@ export default function Page() {
                 </select>
               </label>
 
-              <label style={{ color: "#cbd5e1", display: "grid", gap: 6 }}>
-                Alias / apodo
-                <input
-                  type="text"
-                  placeholder="Fran"
-                  value={aliasPerfil}
-                  onChange={(e) => setAliasPerfil(e.target.value)}
-                  style={inputStyle}
-                />
-              </label>
             </div>
 
             <div style={{ marginTop: 14 }}>
