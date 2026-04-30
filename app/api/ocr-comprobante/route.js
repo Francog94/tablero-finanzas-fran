@@ -33,6 +33,39 @@ function emptyResponse() {
   };
 }
 
+function normalizarRespuestaOCR(payload) {
+  const base = emptyResponse();
+  const data = payload && typeof payload === "object" ? payload : {};
+
+  const montoCrudo = data.monto;
+  let monto = null;
+  if (typeof montoCrudo === "number" && Number.isFinite(montoCrudo)) {
+    monto = montoCrudo;
+  } else if (typeof montoCrudo === "string") {
+    const limpio = montoCrudo
+      .replace(/\$/g, "")
+      .replace(/\s/g, "")
+      .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+      .replace(",", ".")
+      .replace(/[^0-9.-]/g, "");
+    const numero = Number(limpio);
+    monto = Number.isFinite(numero) ? numero : null;
+  }
+
+  return {
+    fecha: typeof data.fecha === "string" ? data.fecha.trim() : base.fecha,
+    tipo: data.tipo === "Ingreso" ? "Ingreso" : "Gasto",
+    categoria: typeof data.categoria === "string" ? data.categoria.trim() : base.categoria,
+    descripcion: typeof data.descripcion === "string" ? data.descripcion.trim() : base.descripcion,
+    monto,
+    confianza:
+      typeof data.confianza === "number" && Number.isFinite(data.confianza)
+        ? Math.max(0, Math.min(1, data.confianza))
+        : base.confianza,
+    notas: typeof data.notas === "string" ? data.notas.trim() : base.notas,
+  };
+}
+
 export async function POST(request) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: "OPENAI_API_KEY no configurada." }, { status: 500 });
@@ -82,7 +115,7 @@ export async function POST(request) {
             content: [
               {
                 type: "input_text",
-                text: "Extraé datos de comprobantes/tickets/facturas de Argentina. No inventes datos. Si no estás seguro, devolvé vacío o null. Respondé SOLO JSON válido con el esquema requerido.",
+                text: "Sos un extractor OCR financiero robusto para tickets/facturas argentinos con ruido, inclinación, sombras, arrugas y texto incompleto. Priorizá detectar: 1) monto total (buscar TOTAL, IMPORTE, TOTAL FINAL o el valor monetario más grande visible), 2) nombre del comercio, 3) fecha. Si algún dato no es totalmente seguro, devolvé igualmente la mejor estimación posible en lugar de dejar todo vacío. Solo cuando no exista evidencia visual mínima, usar vacío/null.",
               },
             ],
           },
@@ -91,7 +124,7 @@ export async function POST(request) {
             content: [
               {
                 type: "input_text",
-                text: "Detectá fecha (YYYY-MM-DD), tipo (Gasto o Ingreso), categoría sugerida, descripción corta y monto total. Si no se puede leer algo, dejar vacío/null.",
+                text: "Analizá este ticket o comprobante. Extraé la siguiente información aunque sea parcialmente:\n\n- fecha (si no está clara, dejar vacía)\n- tipo (Gasto por defecto)\n- categoria (inferir: supermercado, combustible, etc)\n- descripcion (nombre del comercio)\n- monto (buscar TOTAL o valor más grande visible)\n\nSi la confianza es baja, devolver igual los datos encontrados y marcar confianza < 0.5. Respondé únicamente JSON.",
               },
               {
                 type: "input_image",
@@ -105,7 +138,7 @@ export async function POST(request) {
             type: "json_schema",
             name: "ocr_comprobante",
             schema: RESPONSE_SCHEMA,
-            strict: true,
+            strict: false,
           },
         },
       }),
@@ -117,13 +150,21 @@ export async function POST(request) {
     }
 
     const result = await aiResponse.json();
+    console.log("[ocr-comprobante] OpenAI raw response:", result);
+
     const raw = result?.output_text;
     if (!raw) {
       return NextResponse.json(emptyResponse());
     }
 
-    const parsed = JSON.parse(raw);
-    return NextResponse.json(parsed);
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_error) {
+      parsed = {};
+    }
+
+    return NextResponse.json(normalizarRespuestaOCR(parsed));
   } catch (error) {
     return NextResponse.json({ error: "No se pudo procesar el comprobante.", detail: error?.message }, { status: 500 });
   }
