@@ -340,6 +340,7 @@ export default function Page() {
   const [comprobanteError, setComprobanteError] = useState("");
   const [comprobanteInfo, setComprobanteInfo] = useState("");
   const [comprobanteSaving, setComprobanteSaving] = useState(false);
+  const [comprobanteAnalizando, setComprobanteAnalizando] = useState(false);
   const [comprobanteDraft, setComprobanteDraft] = useState({
     fecha: new Date().toISOString().slice(0, 10),
     tipo: "Gasto",
@@ -1082,6 +1083,10 @@ export default function Page() {
     return sugerirCategoria(normalizado, "Gasto");
   }
 
+  function fechaValidaISO(texto) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(texto || ""));
+  }
+
   async function procesarImagenComprobante(file) {
     setComprobanteError("");
     setComprobanteInfo("");
@@ -1096,10 +1101,46 @@ export default function Page() {
       fecha: new Date().toISOString().slice(0, 10),
       tipo: "Gasto",
       categoria: "",
-      descripcion: "Comprobante",
+      descripcion: "",
       monto: "",
     });
-    setComprobanteInfo("Imagen cargada. Completá los datos manualmente por ahora.");
+
+    try {
+      setComprobanteAnalizando(true);
+      setComprobanteInfo("Analizando comprobante...");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/ocr-comprobante", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("No se pudo analizar");
+      }
+
+      const data = await response.json();
+      setComprobanteDraft((prev) => ({
+        ...prev,
+        fecha: fechaValidaISO(data?.fecha) ? data.fecha : prev.fecha,
+        tipo: data?.tipo === "Ingreso" ? "Ingreso" : "Gasto",
+        categoria: String(data?.categoria || "").trim(),
+        descripcion: String(data?.descripcion || "").trim(),
+        monto:
+          typeof data?.monto === "number" && Number.isFinite(data.monto)
+            ? String(data.monto)
+            : prev.monto,
+      }));
+      setComprobanteInfo("Datos detectados. Revisá antes de guardar.");
+    } catch (_error) {
+      setComprobanteInfo(
+        "Imagen cargada. No se pudo leer automáticamente. Completá los datos manualmente."
+      );
+    } finally {
+      setComprobanteAnalizando(false);
+    }
   }
 
   function actualizarComprobante(field, value) {
@@ -2812,21 +2853,21 @@ export default function Page() {
                     <button
                       onClick={guardarMovimientoDesdeComprobante}
                       style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)", width: "fit-content" }}
-                      disabled={comprobanteSaving}
+                      disabled={comprobanteSaving || comprobanteAnalizando}
                     >
                       {comprobanteSaving ? "Guardando..." : "Guardar movimiento"}
                     </button>
                     <button
                       onClick={limpiarComprobanteCargado}
                       style={{ ...buttonStyle, background: "#475569", boxShadow: "none", width: "fit-content" }}
-                      disabled={comprobanteSaving}
+                      disabled={comprobanteSaving || comprobanteAnalizando}
                     >
                       Quitar imagen
                     </button>
                     <button
                       onClick={cancelarComprobante}
                       style={{ ...buttonStyle, background: "#334155", boxShadow: "none", width: "fit-content" }}
-                      disabled={comprobanteSaving}
+                      disabled={comprobanteSaving || comprobanteAnalizando}
                     >
                       Cancelar
                     </button>
