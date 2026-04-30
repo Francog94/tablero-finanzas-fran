@@ -335,6 +335,18 @@ export default function Page() {
   const [importarResumenError, setImportarResumenError] = useState("");
   const [importarResumenSaving, setImportarResumenSaving] = useState(false);
   const [importarResumenSuccess, setImportarResumenSuccess] = useState("");
+  const [comprobanteImagen, setComprobanteImagen] = useState(null);
+  const [comprobantePreviewUrl, setComprobantePreviewUrl] = useState("");
+  const [comprobanteError, setComprobanteError] = useState("");
+  const [comprobanteInfo, setComprobanteInfo] = useState("");
+  const [comprobanteSaving, setComprobanteSaving] = useState(false);
+  const [comprobanteDraft, setComprobanteDraft] = useState({
+    fecha: new Date().toISOString().slice(0, 10),
+    tipo: "Gasto",
+    categoria: "",
+    descripcion: "",
+    monto: "",
+  });
   const [importarResumenUsarFechaPago, setImportarResumenUsarFechaPago] = useState(true);
   const [importarResumenFechaPago, setImportarResumenFechaPago] = useState(
     new Date().toISOString().slice(0, 10)
@@ -357,6 +369,7 @@ export default function Page() {
   });
   const menuUsuarioRef = useRef(null);
   const menuNavegacionRef = useRef(null);
+  const comprobanteInputRef = useRef(null);
 
   const nombreMostradoUsuario = useMemo(
     () => usuarioVisible(user, perfilFinanciero),
@@ -1028,6 +1041,131 @@ export default function Page() {
     const tokens = (descripcion || "").trim().split(/\s+/).filter(Boolean);
     const primera = esTokenFecha(tokens[0]) ? tokens[1] : tokens[0];
     return primera ? primera[0].toUpperCase() + primera.slice(1) : "General";
+  }
+
+  function sugerirCategoriaPorTexto(texto) {
+    const normalizado = String(texto || "").toLowerCase();
+    if (
+      normalizado.includes("ypf") ||
+      normalizado.includes("shell") ||
+      normalizado.includes("axion") ||
+      normalizado.includes("combustible") ||
+      normalizado.includes("nafta")
+    ) return "Combustible";
+    if (
+      normalizado.includes("farmacia") ||
+      normalizado.includes("farmacity") ||
+      normalizado.includes("salud")
+    ) return "Salud";
+    if (
+      normalizado.includes("supermercado") ||
+      normalizado.includes("coto") ||
+      normalizado.includes("carrefour") ||
+      normalizado.includes("dia") ||
+      normalizado.includes("changomas")
+    ) return "Supermercado";
+    if (normalizado.includes("seguro") || normalizado.includes("póliza") || normalizado.includes("poliza")) return "Seguros";
+    if (
+      normalizado.includes("netflix") ||
+      normalizado.includes("spotify") ||
+      normalizado.includes("youtube") ||
+      normalizado.includes("meli+")
+    ) return "Suscripción";
+    if (
+      normalizado.includes("restaurante") ||
+      normalizado.includes("cena") ||
+      normalizado.includes("bar") ||
+      normalizado.includes("café") ||
+      normalizado.includes("cafe")
+    ) return "Cena / Salidas";
+
+    return sugerirCategoria(normalizado, "Gasto");
+  }
+
+  async function procesarImagenComprobante(file) {
+    setComprobanteError("");
+    setComprobanteInfo("");
+    if (!file) return;
+
+    if (comprobantePreviewUrl) URL.revokeObjectURL(comprobantePreviewUrl);
+    const url = URL.createObjectURL(file);
+    setComprobanteImagen(file);
+    setComprobantePreviewUrl(url);
+
+    const categoriaSugerida = sugerirCategoriaPorTexto(file.name);
+    const descripcionSugerida = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
+    setComprobanteDraft({
+      fecha: new Date().toISOString().slice(0, 10),
+      tipo: "Gasto",
+      categoria: categoriaSugerida,
+      descripcion: descripcionSugerida || "Comprobante",
+      monto: "",
+    });
+    setComprobanteInfo("Imagen cargada. Completá los datos manualmente por ahora.");
+  }
+
+  function actualizarComprobante(field, value) {
+    setComprobanteDraft((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function limpiarComprobanteCargado() {
+    if (comprobantePreviewUrl) URL.revokeObjectURL(comprobantePreviewUrl);
+    setComprobanteImagen(null);
+    setComprobantePreviewUrl("");
+    setComprobanteError("");
+    setComprobanteInfo("");
+    if (comprobanteInputRef.current) {
+      comprobanteInputRef.current.value = "";
+    }
+  }
+
+  function cancelarComprobante() {
+    limpiarComprobanteCargado();
+    setComprobanteDraft({
+      fecha: new Date().toISOString().slice(0, 10),
+      tipo: "Gasto",
+      categoria: "",
+      descripcion: "",
+      monto: "",
+    });
+  }
+
+  async function guardarMovimientoDesdeComprobante() {
+    if (!user || comprobanteSaving) return;
+    setComprobanteError("");
+    const categoriaLimpia = comprobanteDraft.categoria.trim();
+    const descripcionLimpia = comprobanteDraft.descripcion.trim();
+    const montoNumero = Number(comprobanteDraft.monto);
+    if (!Number.isFinite(montoNumero) || montoNumero <= 0) {
+      setComprobanteError("Ingresá un monto válido mayor a 0 antes de guardar.");
+      return;
+    }
+    if (!comprobanteDraft.fecha || !categoriaLimpia || !descripcionLimpia) {
+      setComprobanteError("Completá fecha, categoría y descripción antes de guardar.");
+      return;
+    }
+    setComprobanteSaving(true);
+    const payload = {
+      fecha: comprobanteDraft.fecha,
+      tipo: comprobanteDraft.tipo || "Gasto",
+      categoria: categoriaLimpia,
+      descripcion: descripcionLimpia,
+      monto: montoNumero,
+      user_id: user.id,
+    };
+    const { data, error } = await supabase.from("movimientos").insert([payload]).select();
+    if (error) {
+      setComprobanteError(`No se pudo guardar: ${error.message}`);
+      setComprobanteSaving(false);
+      return;
+    }
+    if (data?.[0]) {
+      setMovimientos((prev) => [data[0], ...prev]);
+    }
+    await asegurarCategoria(categoriaLimpia);
+    cancelarComprobante();
+    setComprobanteInfo("✔️ Movimiento guardado desde comprobante.");
+    setComprobanteSaving(false);
   }
 
   function extraerFechaDesdeTexto(lineaOriginal) {
@@ -2629,6 +2767,74 @@ export default function Page() {
                 <button onClick={agregarMovimiento} style={buttonStyle} disabled={saving}>
                   {saving ? "Guardando..." : "Agregar"}
                 </button>
+              </div>
+            </div>
+            <div style={{ ...cardStyle, marginBottom: "24px" }}>
+              <h2 style={{ marginTop: 0 }}>Cargar comprobante</h2>
+              <p style={{ color: "#94a3b8", marginTop: 0 }}>
+                Subí una imagen de ticket/comprobante para generar una previsualización editable antes de guardar.
+              </p>
+              {comprobanteError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{comprobanteError}</p>}
+              {comprobanteInfo && <p style={{ color: "#86efac", marginTop: 0 }}>{comprobanteInfo}</p>}
+              <div style={{ display: "grid", gap: 10 }}>
+                <label style={{ ...buttonStyle, display: "inline-flex", width: "fit-content", alignItems: "center", gap: 8 }}>
+                  <span>Subir imagen</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    ref={comprobanteInputRef}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      procesarImagenComprobante(file);
+                    }}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                {comprobantePreviewUrl && (
+                  <img
+                    src={comprobantePreviewUrl}
+                    alt="Previsualización del comprobante"
+                    style={{ width: "100%", maxHeight: 240, objectFit: "cover", objectPosition: "center", borderRadius: 12, border: "1px solid #334155" }}
+                  />
+                )}
+                {comprobantePreviewUrl && (
+                  <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+                    <input type="date" value={comprobanteDraft.fecha} onChange={(e) => actualizarComprobante("fecha", e.target.value)} style={inputStyle} />
+                    <select value={comprobanteDraft.tipo} onChange={(e) => actualizarComprobante("tipo", e.target.value)} style={inputStyle}>
+                      <option value="Gasto">Gasto</option>
+                      <option value="Ingreso">Ingreso</option>
+                    </select>
+                    <input value={comprobanteDraft.categoria} onChange={(e) => actualizarComprobante("categoria", e.target.value)} style={inputStyle} placeholder="Categoría" />
+                    <input value={comprobanteDraft.descripcion} onChange={(e) => actualizarComprobante("descripcion", e.target.value)} style={inputStyle} placeholder="Descripción del comercio o comprobante" />
+                    <input type="number" value={comprobanteDraft.monto} onChange={(e) => actualizarComprobante("monto", e.target.value)} style={inputStyle} placeholder="Monto" />
+                  </div>
+                )}
+                {comprobantePreviewUrl && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      onClick={guardarMovimientoDesdeComprobante}
+                      style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)", width: "fit-content" }}
+                      disabled={comprobanteSaving}
+                    >
+                      {comprobanteSaving ? "Guardando..." : "Guardar movimiento"}
+                    </button>
+                    <button
+                      onClick={limpiarComprobanteCargado}
+                      style={{ ...buttonStyle, background: "#475569", boxShadow: "none", width: "fit-content" }}
+                      disabled={comprobanteSaving}
+                    >
+                      Quitar imagen
+                    </button>
+                    <button
+                      onClick={cancelarComprobante}
+                      style={{ ...buttonStyle, background: "#334155", boxShadow: "none", width: "fit-content" }}
+                      disabled={comprobanteSaving}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
                         <div style={{ ...cardStyle, marginBottom: "24px" }}>
