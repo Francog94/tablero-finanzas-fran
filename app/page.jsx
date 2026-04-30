@@ -1126,6 +1126,9 @@ export default function Page() {
       descripcion: "",
       monto: "",
     });
+    if (comprobanteInputRef.current) {
+      comprobanteInputRef.current.value = "";
+    }
   }
 
   async function guardarMovimientoDesdeComprobante() {
@@ -1134,12 +1137,8 @@ export default function Page() {
     const categoriaLimpia = comprobanteDraft.categoria.trim();
     const descripcionLimpia = comprobanteDraft.descripcion.trim();
     const montoNumero = Number(comprobanteDraft.monto);
-    if (!Number.isFinite(montoNumero) || montoNumero <= 0) {
-      setComprobanteError("Ingresá un monto válido mayor a 0 antes de guardar.");
-      return;
-    }
-    if (!comprobanteDraft.fecha || !categoriaLimpia || !descripcionLimpia) {
-      setComprobanteError("Completá fecha, categoría y descripción antes de guardar.");
+    if (!comprobanteDraft.fecha || !categoriaLimpia || !descripcionLimpia || !Number.isFinite(montoNumero) || montoNumero <= 0) {
+      setComprobanteError("Completá fecha, categoría, descripción y un monto válido mayor a 0.");
       return;
     }
     setComprobanteSaving(true);
@@ -2793,7 +2792,7 @@ export default function Page() {
                   <img
                     src={comprobantePreviewUrl}
                     alt="Previsualización del comprobante"
-                    style={{ width: "100%", maxHeight: 240, objectFit: "cover", objectPosition: "center", borderRadius: 12, border: "1px solid #334155" }}
+                    style={{ maxWidth: "100%", maxHeight: 320, objectFit: "contain", borderRadius: 12, border: "1px solid #334155" }}
                   />
                 )}
                 {comprobantePreviewUrl && (
