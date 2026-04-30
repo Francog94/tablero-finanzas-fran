@@ -163,18 +163,28 @@ export async function POST(request) {
         .join(" ");
     }
 
-    console.log("RAW OCR:", raw);
-    
-    if (!raw) {
-  return NextResponse.json(emptyResponse());
-}
+    console.log("[OCR] RAW:", raw);
 
-    let parsed;
+    if (!raw || raw.trim() === "") {
+      return NextResponse.json(emptyResponse());
+    }
+
+    let parsed = {};
+
     try {
       parsed = JSON.parse(raw);
-    } catch (_error) {
-      parsed = {};
+    } catch {
+      try {
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (match) {
+          parsed = JSON.parse(match[0]);
+        }
+      } catch {
+        parsed = {};
+      }
     }
+
+    console.log("[OCR] PARSED:", parsed);
 
     return NextResponse.json(normalizarRespuestaOCR(parsed));
   } catch (error) {
