@@ -1747,12 +1747,29 @@ export default function Page() {
           .mobile-cards { display: grid; gap: 14px; }
           .app-shell { padding: max(10px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); }
           .app-container { max-width: none; margin: 0; }
-          .header-title { display: none; }
+          .header-row { position: relative; justify-content: center; }
+          .header-title { display: block; text-align: center; font-size: 21px !important; }
+          .user-menu-wrap { position: absolute !important; right: 0; top: 50%; transform: translateY(-50%); }
+          .user-menu-btn { width: 40px !important; height: 40px !important; }
+          .user-menu-dropdown {
+            right: 0 !important;
+            left: auto !important;
+            min-width: 180px !important;
+            max-width: min(240px, calc(100vw - 32px));
+          }
+          .mobile-tight-card { padding: 14px !important; }
+          .mobile-saldo { font-size: clamp(30px, 8vw, 34px) !important; }
+          .mobile-periodo { font-size: clamp(24px, 7vw, 28px) !important; }
+          .mobile-filtros button,
+          .mobile-filtros input,
+          .mobile-filtros select { padding: 8px 10px !important; }
+          .mobile-chart-title { font-size: 20px !important; }
         }
       `}</style>
 
       <div style={containerStyle} className="app-container">
         <div
+          className="header-row"
           style={{
             display: "flex",
             justifyContent: "space-between",
@@ -1763,10 +1780,11 @@ export default function Page() {
         >
           <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
 
-          <div style={{ position: "relative" }} ref={menuUsuarioRef}>
+          <div className="user-menu-wrap" style={{ position: "relative" }} ref={menuUsuarioRef}>
             <button
               onClick={() => setMenuUsuarioAbierto((prev) => !prev)}
               aria-label="Abrir menú de usuario"
+              className="user-menu-btn"
               style={{
                 ...buttonStyle,
                 width: 44,
@@ -1785,6 +1803,7 @@ export default function Page() {
 
             {menuUsuarioAbierto && (
               <div
+                className="user-menu-dropdown"
                 style={{
                   position: "absolute",
                   top: "calc(100% + 10px)",
@@ -1953,6 +1972,7 @@ export default function Page() {
         {tabActiva === "resumen" && (
           <>
             <div
+              className="mobile-tight-card"
               style={{
                 ...cardStyle,
                 marginBottom: "16px",
@@ -1961,7 +1981,7 @@ export default function Page() {
               }}
             >
               <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: "6px", fontSize: "12px" }}>Saldo actual</h3>
-              <div style={{ ...valueStyle, fontSize: "clamp(34px, 8vw, 38px)", marginTop: 0, color: saldoActual >= 0 ? "#34d399" : "#f87171" }}>
+              <div className="mobile-saldo" style={{ ...valueStyle, fontSize: "clamp(34px, 8vw, 38px)", marginTop: 0, color: saldoActual >= 0 ? "#34d399" : "#f87171" }}>
                 {money(saldoActual, monedaActiva)}
               </div>
               <div style={{ color: "#94a3b8", fontSize: "13px", marginTop: "6px" }}>Saldo total (todos los movimientos)</div>
@@ -1975,18 +1995,18 @@ export default function Page() {
                 marginBottom: "12px",
               }}
             >
-              <div style={{ ...cardStyle, padding: "14px" }}>
+              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "14px" }}>
                 <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", fontSize: "12px" }}>Gastos del período</h3>
-                <div style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#f87171", marginTop: "8px" }}>{money(totalGastos, monedaActiva)}</div>
+                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#f87171", marginTop: "8px" }}>{money(totalGastos, monedaActiva)}</div>
               </div>
 
-              <div style={{ ...cardStyle, padding: "14px" }}>
+              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "14px" }}>
                 <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", fontSize: "12px" }}>Ingresos del período</h3>
-                <div style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#34d399", marginTop: "8px" }}>{money(totalIngresos, monedaActiva)}</div>
+                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#34d399", marginTop: "8px" }}>{money(totalIngresos, monedaActiva)}</div>
               </div>
             </div>
 
-            <div style={{ ...cardStyle, marginBottom: "12px", padding: "12px" }}>
+            <div className="mobile-tight-card mobile-filtros" style={{ ...cardStyle, marginBottom: "12px", padding: "12px" }}>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Día</button>
                 <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Semana</button>
@@ -1997,7 +2017,7 @@ export default function Page() {
             </div>
 
             <div style={{ ...cardStyle, marginBottom: "12px", textAlign: "center", padding: "14px" }}>
-              <h2 style={{ marginTop: 0, marginBottom: "10px", fontSize: "16px" }}>Gastos por categoría</h2>
+              <h2 className="mobile-chart-title" style={{ marginTop: 0, marginBottom: "10px", fontSize: "16px" }}>Gastos por categoría</h2>
               <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
                 <div style={{ width: "100%", maxWidth: 220 }}>
                   <PieChartSimple data={porCategoria} currency={monedaActiva} />
