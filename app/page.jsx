@@ -1978,13 +1978,52 @@ export default function Page() {
                 marginBottom: "16px",
                 padding: "16px",
                 borderRadius: "22px",
+                background: "linear-gradient(145deg, #0b2a4a 0%, #123f48 100%)",
+                border: "1px solid #1e4a66",
               }}
             >
-              <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: "6px", fontSize: "12px" }}>Saldo actual</h3>
-              <div className="mobile-saldo" style={{ ...valueStyle, fontSize: "clamp(34px, 8vw, 38px)", marginTop: 0, color: saldoActual >= 0 ? "#34d399" : "#f87171" }}>
+              <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: "6px", fontSize: "12px", color: "#cfe9ff" }}>Saldo disponible</h3>
+              <div className="mobile-saldo" style={{ ...valueStyle, fontSize: "clamp(30px, 8vw, 34px)", marginTop: 0, color: saldoActual >= 0 ? "#86efac" : "#fca5a5" }}>
                 {money(saldoActual, monedaActiva)}
               </div>
-              <div style={{ color: "#94a3b8", fontSize: "13px", marginTop: "6px" }}>Saldo total (todos los movimientos)</div>
+              <div style={{ color: "#bfdbfe", fontSize: "12px", marginTop: "6px" }}>Calculado con todos los movimientos</div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => {
+                    setTabActiva("agregar");
+                    setTipo("Ingreso");
+                  }}
+                  style={{
+                    border: "1px solid rgba(167, 243, 208, 0.45)",
+                    background: "rgba(16, 185, 129, 0.2)",
+                    color: "#dcfce7",
+                    borderRadius: 12,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  + Ingreso
+                </button>
+                <button
+                  onClick={() => {
+                    setTabActiva("agregar");
+                    setTipo("Gasto");
+                  }}
+                  style={{
+                    border: "1px solid rgba(254, 202, 202, 0.45)",
+                    background: "rgba(239, 68, 68, 0.2)",
+                    color: "#fee2e2",
+                    borderRadius: 12,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  - Gasto
+                </button>
+              </div>
             </div>
 
             <div
@@ -1995,31 +2034,53 @@ export default function Page() {
                 marginBottom: "12px",
               }}
             >
-              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "14px" }}>
+              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "12px 14px", borderRadius: "16px" }}>
                 <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", fontSize: "12px" }}>Gastos del período</h3>
-                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#f87171", marginTop: "8px" }}>{money(totalGastos, monedaActiva)}</div>
+                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(20px, 5.5vw, 24px)", color: "#f87171", marginTop: "6px" }}>{money(totalGastos, monedaActiva)}</div>
               </div>
 
-              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "14px" }}>
+              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "12px 14px", borderRadius: "16px" }}>
                 <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", fontSize: "12px" }}>Ingresos del período</h3>
-                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#34d399", marginTop: "8px" }}>{money(totalIngresos, monedaActiva)}</div>
+                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(20px, 5.5vw, 24px)", color: "#34d399", marginTop: "6px" }}>{money(totalIngresos, monedaActiva)}</div>
               </div>
             </div>
 
             <div className="mobile-tight-card mobile-filtros" style={{ ...cardStyle, marginBottom: "12px", padding: "12px" }}>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Día</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Semana</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Mes</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 4))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Año</button>
-                <button onClick={setTodos} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Todos</button>
+                {[
+                  { label: "Día", value: new Date().toISOString().slice(0, 10), onClick: () => setMesSeleccionado(new Date().toISOString().slice(0, 10)) },
+                  { label: "Semana", value: new Date().toISOString().slice(0, 7), onClick: () => setMesSeleccionado(new Date().toISOString().slice(0, 7)) },
+                  { label: "Mes", value: new Date().toISOString().slice(0, 7), onClick: () => setMesSeleccionado(new Date().toISOString().slice(0, 7)) },
+                  { label: "Año", value: new Date().toISOString().slice(0, 4), onClick: () => setMesSeleccionado(new Date().toISOString().slice(0, 4)) },
+                  { label: "Todos", value: "", onClick: setTodos },
+                ].map((chip) => {
+                  const activo = chip.value ? mesSeleccionado === chip.value : !mesSeleccionado;
+                  return (
+                    <button
+                      key={chip.label}
+                      onClick={chip.onClick}
+                      style={{
+                        padding: "7px 10px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        border: activo ? "1px solid #60a5fa" : "1px solid #334155",
+                        background: activo ? "rgba(37, 99, 235, 0.3)" : "#1e293b",
+                        color: "#e2e8f0",
+                        minHeight: 32,
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div style={{ ...cardStyle, marginBottom: "12px", textAlign: "center", padding: "14px" }}>
-              <h2 className="mobile-chart-title" style={{ marginTop: 0, marginBottom: "10px", fontSize: "16px" }}>Gastos por categoría</h2>
+              <h2 className="mobile-chart-title" style={{ marginTop: 0, marginBottom: "10px", fontSize: "20px" }}>Gastos por categoría</h2>
               <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-                <div style={{ width: "100%", maxWidth: 220 }}>
+                <div style={{ width: "100%", maxWidth: 200 }}>
                   <PieChartSimple data={porCategoria} currency={monedaActiva} />
                 </div>
               </div>
