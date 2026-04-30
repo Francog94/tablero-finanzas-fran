@@ -8,10 +8,11 @@ const RESPONSE_SCHEMA = {
     tipo: { type: "string", enum: ["Gasto", "Ingreso"] },
     categoria: { type: "string" },
     descripcion: { type: "string" },
-    monto: { type: ["number", "null", "string"] },
+    monto: { type: ["number", "null"] },
     confianza: { type: "number" },
     notas: { type: "string" },
   },
+  required: ["fecha", "tipo", "categoria", "descripcion", "monto", "confianza", "notas"],
 };
 
 function parseDataUrl(input) {
