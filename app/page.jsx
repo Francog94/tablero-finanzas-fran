@@ -377,6 +377,12 @@ export default function Page() {
     setMenuNavegacionAbierto(false);
   };
 
+  function navegarA(tab) {
+    setTabActiva(tab);
+    setMenuUsuarioAbierto(false);
+    setMenuNavegacionAbierto(false);
+  }
+
   useEffect(() => {
     function manejarClickFuera(event) {
       if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(event.target)) {
@@ -1771,12 +1777,6 @@ export default function Page() {
             min-width: 180px !important;
             max-width: min(240px, calc(100vw - 32px));
           }
-          .nav-menu-dropdown {
-            right: 0 !important;
-            left: auto !important;
-            min-width: 180px !important;
-            max-width: min(240px, calc(100vw - 32px));
-          }
           .mobile-tight-card { padding: 14px !important; }
           .mobile-saldo { font-size: clamp(30px, 8vw, 34px) !important; }
           .mobile-periodo { font-size: clamp(24px, 7vw, 28px) !important; }
@@ -1842,9 +1842,9 @@ export default function Page() {
                 <div style={{ padding: "12px 14px", borderBottom: "1px solid #1e293b", color: "#cbd5e1", fontWeight: 600 }}>
                   {nombreMostradoUsuario}
                 </div>
-                <button onClick={() => { setTabActiva("configuracion"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Configuración</button>
+                <button onClick={() => navegarA("configuracion")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Configuración</button>
                 <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Perfil</button>
-                <button onClick={cerrarSesion} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Cerrar sesión</button>
+                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); cerrarSesion(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Cerrar sesión</button>
                 <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>Eliminar cuenta</button>
               </div>
             )}
@@ -1893,62 +1893,11 @@ export default function Page() {
                   zIndex: 30,
                 }}
               >
-                <button onClick={() => { setTabActiva("resumen"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Resumen</button>
-                <button onClick={() => { setTabActiva("movimientos"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Movimientos</button>
-                <button onClick={() => { setTabActiva("agregar"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Agregar</button>
-                <button onClick={() => { setTabActiva("importar"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Importar</button>
-                <button onClick={() => { setTabActiva("categorias"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Categorías</button>
-              </div>
-            )}
-          </div>
-
-          <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
-
-          <div className="mobile-menu-wrap" style={{ position: "relative", display: "none" }} ref={menuNavegacionRef}>
-            <button
-              onClick={() => {
-                setMenuNavegacionAbierto((prev) => !prev);
-                setMenuUsuarioAbierto(false);
-              }}
-              aria-label="Abrir menú de navegación"
-              className="nav-menu-btn"
-              style={{
-                ...buttonStyle,
-                width: 44,
-                height: 44,
-                padding: "0",
-                borderRadius: "12px",
-                background: "#1e293b",
-                border: "1px solid #334155",
-                boxShadow: "none",
-                fontSize: "20px",
-                lineHeight: 1,
-              }}
-            >
-              ☰
-            </button>
-
-            {menuNavegacionAbierto && (
-              <div
-                className="nav-menu-dropdown"
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 10px)",
-                  right: 0,
-                  minWidth: "220px",
-                  background: "#0b1220",
-                  border: "1px solid #263244",
-                  borderRadius: "14px",
-                  boxShadow: "0 10px 30px rgba(2, 6, 23, 0.35)",
-                  overflow: "hidden",
-                  zIndex: 30,
-                }}
-              >
-                <button onClick={() => setTabActiva("resumen")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Resumen</button>
-                <button onClick={() => setTabActiva("movimientos")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Movimientos</button>
-                <button onClick={() => setTabActiva("agregar")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Agregar</button>
-                <button onClick={() => setTabActiva("importar")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Importar</button>
-                <button onClick={() => setTabActiva("categorias")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Categorías</button>
+                <button onClick={() => navegarA("resumen")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Resumen</button>
+                <button onClick={() => navegarA("movimientos")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Movimientos</button>
+                <button onClick={() => navegarA("agregar")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Agregar</button>
+                <button onClick={() => navegarA("importar")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Importar</button>
+                <button onClick={() => navegarA("categorias")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Categorías</button>
               </div>
             )}
           </div>
