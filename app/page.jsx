@@ -305,6 +305,7 @@ export default function Page() {
   const [mesSeleccionado, setMesSeleccionado] = useState("");
   const [tabActiva, setTabActiva] = useState("resumen");
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
+  const [menuNavegacionAbierto, setMenuNavegacionAbierto] = useState(false);
 
   const [editandoId, setEditandoId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -344,6 +345,7 @@ export default function Page() {
     monto: "",
   });
   const menuUsuarioRef = useRef(null);
+  const menuNavegacionRef = useRef(null);
 
   const nombreMostradoUsuario = useMemo(() => {
     const metadata = user?.user_metadata || {};
@@ -372,12 +374,16 @@ export default function Page() {
     setPerfilError("");
     setPerfilLoading(false);
     setMenuUsuarioAbierto(false);
+    setMenuNavegacionAbierto(false);
   };
 
   useEffect(() => {
     function manejarClickFuera(event) {
       if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(event.target)) {
         setMenuUsuarioAbierto(false);
+      }
+      if (menuNavegacionRef.current && !menuNavegacionRef.current.contains(event.target)) {
+        setMenuNavegacionAbierto(false);
       }
     }
 
@@ -1747,11 +1753,19 @@ export default function Page() {
           .mobile-cards { display: grid; gap: 14px; }
           .app-shell { padding: max(10px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); }
           .app-container { max-width: none; margin: 0; }
-          .header-row { position: relative; justify-content: center; }
-          .header-title { display: block; text-align: center; font-size: 21px !important; }
-          .user-menu-wrap { position: absolute !important; right: 0; top: 50%; transform: translateY(-50%); }
-          .user-menu-btn { width: 40px !important; height: 40px !important; }
+          .header-row { position: relative; justify-content: space-between !important; align-items: center !important; margin-bottom: 16px !important; }
+          .header-title { display: none !important; }
+          .user-menu-btn,
+          .nav-menu-btn { width: 40px !important; height: 40px !important; }
+          .desktop-tabs-wrap { display: none !important; }
+          .mobile-menu-wrap { display: block !important; }
           .user-menu-dropdown {
+            left: 0 !important;
+            right: auto !important;
+            min-width: 180px !important;
+            max-width: calc(100vw - 32px) !important;
+          }
+          .nav-menu-dropdown {
             right: 0 !important;
             left: auto !important;
             min-width: 180px !important;
@@ -1778,12 +1792,13 @@ export default function Page() {
             marginBottom: "24px",
           }}
         >
-          <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
-
-          <div className="user-menu-wrap" style={{ position: "relative" }} ref={menuUsuarioRef}>
+          <div className="mobile-menu-wrap" style={{ position: "relative", display: "none" }} ref={menuUsuarioRef}>
             <button
-              onClick={() => setMenuUsuarioAbierto((prev) => !prev)}
-              aria-label="Abrir menú de usuario"
+              onClick={() => {
+                setMenuUsuarioAbierto((prev) => !prev);
+                setMenuNavegacionAbierto(false);
+              }}
+              aria-label="Abrir menú de configuración"
               className="user-menu-btn"
               style={{
                 ...buttonStyle,
@@ -1798,7 +1813,7 @@ export default function Page() {
                 lineHeight: 1,
               }}
             >
-              👤
+              ⚙️
             </button>
 
             {menuUsuarioAbierto && (
@@ -1807,7 +1822,8 @@ export default function Page() {
                 style={{
                   position: "absolute",
                   top: "calc(100% + 10px)",
-                  right: 0,
+                  left: 0,
+                  right: "auto",
                   minWidth: "220px",
                   background: "#0b1220",
                   border: "1px solid #263244",
@@ -1820,16 +1836,69 @@ export default function Page() {
                 <div style={{ padding: "12px 14px", borderBottom: "1px solid #1e293b", color: "#cbd5e1", fontWeight: 600 }}>
                   {nombreMostradoUsuario}
                 </div>
-                <button onClick={() => setTabActiva("configuracion")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Configuración</button>
-                <button style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Perfil</button>
+                <button onClick={() => { setTabActiva("configuracion"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Configuración</button>
+                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Perfil</button>
                 <button onClick={cerrarSesion} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Cerrar sesión</button>
-                <button style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>Eliminar cuenta</button>
+                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>Eliminar cuenta</button>
+              </div>
+            )}
+          </div>
+
+          <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
+
+          <div className="mobile-menu-wrap" style={{ position: "relative", display: "none" }} ref={menuNavegacionRef}>
+            <button
+              onClick={() => {
+                setMenuNavegacionAbierto((prev) => !prev);
+                setMenuUsuarioAbierto(false);
+              }}
+              aria-label="Abrir menú de navegación"
+              className="nav-menu-btn"
+              style={{
+                ...buttonStyle,
+                width: 44,
+                height: 44,
+                padding: "0",
+                borderRadius: "12px",
+                background: "#1e293b",
+                border: "1px solid #334155",
+                boxShadow: "none",
+                fontSize: "20px",
+                lineHeight: 1,
+              }}
+            >
+              ☰
+            </button>
+
+            {menuNavegacionAbierto && (
+              <div
+                className="nav-menu-dropdown"
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 10px)",
+                  right: 0,
+                  left: "auto",
+                  minWidth: "220px",
+                  background: "#0b1220",
+                  border: "1px solid #263244",
+                  borderRadius: "14px",
+                  boxShadow: "0 10px 30px rgba(2, 6, 23, 0.35)",
+                  overflow: "hidden",
+                  zIndex: 30,
+                }}
+              >
+                <button onClick={() => { setTabActiva("resumen"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Resumen</button>
+                <button onClick={() => { setTabActiva("movimientos"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Movimientos</button>
+                <button onClick={() => { setTabActiva("agregar"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Agregar</button>
+                <button onClick={() => { setTabActiva("importar"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Importar</button>
+                <button onClick={() => { setTabActiva("categorias"); setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Categorías</button>
               </div>
             )}
           </div>
         </div>
 
         <div
+          className="desktop-tabs-wrap"
           style={{
             ...cardStyle,
             marginBottom: "16px",
@@ -1978,13 +2047,52 @@ export default function Page() {
                 marginBottom: "16px",
                 padding: "16px",
                 borderRadius: "22px",
+                background: "linear-gradient(145deg, #0b2a4a 0%, #123f48 100%)",
+                border: "1px solid #1e4a66",
               }}
             >
-              <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: "6px", fontSize: "12px" }}>Saldo actual</h3>
-              <div className="mobile-saldo" style={{ ...valueStyle, fontSize: "clamp(34px, 8vw, 38px)", marginTop: 0, color: saldoActual >= 0 ? "#34d399" : "#f87171" }}>
+              <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: "6px", fontSize: "12px", color: "#cfe9ff" }}>Saldo disponible</h3>
+              <div className="mobile-saldo" style={{ ...valueStyle, fontSize: "clamp(30px, 8vw, 34px)", marginTop: 0, color: saldoActual >= 0 ? "#86efac" : "#fca5a5" }}>
                 {money(saldoActual, monedaActiva)}
               </div>
-              <div style={{ color: "#94a3b8", fontSize: "13px", marginTop: "6px" }}>Saldo total (todos los movimientos)</div>
+              <div style={{ color: "#bfdbfe", fontSize: "12px", marginTop: "6px" }}>Calculado con todos los movimientos</div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => {
+                    setTabActiva("agregar");
+                    setTipo("Ingreso");
+                  }}
+                  style={{
+                    border: "1px solid rgba(167, 243, 208, 0.45)",
+                    background: "rgba(16, 185, 129, 0.2)",
+                    color: "#dcfce7",
+                    borderRadius: 12,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  + Ingreso
+                </button>
+                <button
+                  onClick={() => {
+                    setTabActiva("agregar");
+                    setTipo("Gasto");
+                  }}
+                  style={{
+                    border: "1px solid rgba(254, 202, 202, 0.45)",
+                    background: "rgba(239, 68, 68, 0.2)",
+                    color: "#fee2e2",
+                    borderRadius: 12,
+                    padding: "8px 10px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  - Gasto
+                </button>
+              </div>
             </div>
 
             <div
@@ -1995,31 +2103,53 @@ export default function Page() {
                 marginBottom: "12px",
               }}
             >
-              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "14px" }}>
+              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "12px 14px", borderRadius: "16px" }}>
                 <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", fontSize: "12px" }}>Gastos del período</h3>
-                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#f87171", marginTop: "8px" }}>{money(totalGastos, monedaActiva)}</div>
+                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(20px, 5.5vw, 24px)", color: "#f87171", marginTop: "6px" }}>{money(totalGastos, monedaActiva)}</div>
               </div>
 
-              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "14px" }}>
+              <div className="mobile-tight-card" style={{ ...cardStyle, padding: "12px 14px", borderRadius: "16px" }}>
                 <h3 style={{ ...labelStyle, textTransform: "uppercase", letterSpacing: ".04em", fontSize: "12px" }}>Ingresos del período</h3>
-                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(28px, 7vw, 32px)", color: "#34d399", marginTop: "8px" }}>{money(totalIngresos, monedaActiva)}</div>
+                <div className="mobile-periodo" style={{ ...valueStyle, fontSize: "clamp(20px, 5.5vw, 24px)", color: "#34d399", marginTop: "6px" }}>{money(totalIngresos, monedaActiva)}</div>
               </div>
             </div>
 
             <div className="mobile-tight-card mobile-filtros" style={{ ...cardStyle, marginBottom: "12px", padding: "12px" }}>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 10))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Día</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Semana</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 7))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Mes</button>
-                <button onClick={() => setMesSeleccionado(new Date().toISOString().slice(0, 4))} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Año</button>
-                <button onClick={setTodos} style={{ ...buttonStyle, padding: "10px", fontSize: "14px", flex: "1 1 88px", minWidth: 88, textAlign: "center" }}>Todos</button>
+                {[
+                  { label: "Día", value: new Date().toISOString().slice(0, 10), onClick: () => setMesSeleccionado(new Date().toISOString().slice(0, 10)) },
+                  { label: "Semana", value: new Date().toISOString().slice(0, 7), onClick: () => setMesSeleccionado(new Date().toISOString().slice(0, 7)) },
+                  { label: "Mes", value: new Date().toISOString().slice(0, 7), onClick: () => setMesSeleccionado(new Date().toISOString().slice(0, 7)) },
+                  { label: "Año", value: new Date().toISOString().slice(0, 4), onClick: () => setMesSeleccionado(new Date().toISOString().slice(0, 4)) },
+                  { label: "Todos", value: "", onClick: setTodos },
+                ].map((chip) => {
+                  const activo = chip.value ? mesSeleccionado === chip.value : !mesSeleccionado;
+                  return (
+                    <button
+                      key={chip.label}
+                      onClick={chip.onClick}
+                      style={{
+                        padding: "7px 10px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        border: activo ? "1px solid #60a5fa" : "1px solid #334155",
+                        background: activo ? "rgba(37, 99, 235, 0.3)" : "#1e293b",
+                        color: "#e2e8f0",
+                        minHeight: 32,
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div style={{ ...cardStyle, marginBottom: "12px", textAlign: "center", padding: "14px" }}>
-              <h2 className="mobile-chart-title" style={{ marginTop: 0, marginBottom: "10px", fontSize: "16px" }}>Gastos por categoría</h2>
+              <h2 className="mobile-chart-title" style={{ marginTop: 0, marginBottom: "10px", fontSize: "20px" }}>Gastos por categoría</h2>
               <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-                <div style={{ width: "100%", maxWidth: 220 }}>
+                <div style={{ width: "100%", maxWidth: 200 }}>
                   <PieChartSimple data={porCategoria} currency={monedaActiva} />
                 </div>
               </div>
