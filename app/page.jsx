@@ -305,6 +305,7 @@ export default function Page() {
   const [mesSeleccionado, setMesSeleccionado] = useState("");
   const [tabActiva, setTabActiva] = useState("resumen");
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
+  const [menuNavegacionAbierto, setMenuNavegacionAbierto] = useState(false);
 
   const [editandoId, setEditandoId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -344,6 +345,7 @@ export default function Page() {
     monto: "",
   });
   const menuUsuarioRef = useRef(null);
+  const menuNavegacionRef = useRef(null);
 
   const nombreMostradoUsuario = useMemo(() => {
     const metadata = user?.user_metadata || {};
@@ -372,12 +374,16 @@ export default function Page() {
     setPerfilError("");
     setPerfilLoading(false);
     setMenuUsuarioAbierto(false);
+    setMenuNavegacionAbierto(false);
   };
 
   useEffect(() => {
     function manejarClickFuera(event) {
       if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(event.target)) {
         setMenuUsuarioAbierto(false);
+      }
+      if (menuNavegacionRef.current && !menuNavegacionRef.current.contains(event.target)) {
+        setMenuNavegacionAbierto(false);
       }
     }
 
@@ -1747,11 +1753,19 @@ export default function Page() {
           .mobile-cards { display: grid; gap: 14px; }
           .app-shell { padding: max(10px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); }
           .app-container { max-width: none; margin: 0; }
-          .header-row { position: relative; justify-content: center; }
-          .header-title { display: block; text-align: center; font-size: 21px !important; }
-          .user-menu-wrap { position: absolute !important; right: 0; top: 50%; transform: translateY(-50%); }
-          .user-menu-btn { width: 40px !important; height: 40px !important; }
+          .header-row { position: relative; justify-content: space-between !important; align-items: center !important; margin-bottom: 16px !important; }
+          .header-title { display: none !important; }
+          .user-menu-btn,
+          .nav-menu-btn { width: 40px !important; height: 40px !important; }
+          .desktop-tabs-wrap { display: none !important; }
+          .mobile-menu-wrap { display: block !important; }
           .user-menu-dropdown {
+            right: 0 !important;
+            left: auto !important;
+            min-width: 180px !important;
+            max-width: min(240px, calc(100vw - 32px));
+          }
+          .nav-menu-dropdown {
             right: 0 !important;
             left: auto !important;
             min-width: 180px !important;
@@ -1778,12 +1792,13 @@ export default function Page() {
             marginBottom: "24px",
           }}
         >
-          <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
-
-          <div className="user-menu-wrap" style={{ position: "relative" }} ref={menuUsuarioRef}>
+          <div className="mobile-menu-wrap" style={{ position: "relative", display: "none" }} ref={menuUsuarioRef}>
             <button
-              onClick={() => setMenuUsuarioAbierto((prev) => !prev)}
-              aria-label="Abrir menú de usuario"
+              onClick={() => {
+                setMenuUsuarioAbierto((prev) => !prev);
+                setMenuNavegacionAbierto(false);
+              }}
+              aria-label="Abrir menú de configuración"
               className="user-menu-btn"
               style={{
                 ...buttonStyle,
@@ -1798,7 +1813,7 @@ export default function Page() {
                 lineHeight: 1,
               }}
             >
-              👤
+              ⚙️
             </button>
 
             {menuUsuarioAbierto && (
@@ -1807,7 +1822,8 @@ export default function Page() {
                 style={{
                   position: "absolute",
                   top: "calc(100% + 10px)",
-                  right: 0,
+                  left: 0,
+                  right: "auto",
                   minWidth: "220px",
                   background: "#0b1220",
                   border: "1px solid #263244",
@@ -1827,9 +1843,61 @@ export default function Page() {
               </div>
             )}
           </div>
+
+          <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
+
+          <div className="mobile-menu-wrap" style={{ position: "relative", display: "none" }} ref={menuNavegacionRef}>
+            <button
+              onClick={() => {
+                setMenuNavegacionAbierto((prev) => !prev);
+                setMenuUsuarioAbierto(false);
+              }}
+              aria-label="Abrir menú de navegación"
+              className="nav-menu-btn"
+              style={{
+                ...buttonStyle,
+                width: 44,
+                height: 44,
+                padding: "0",
+                borderRadius: "12px",
+                background: "#1e293b",
+                border: "1px solid #334155",
+                boxShadow: "none",
+                fontSize: "20px",
+                lineHeight: 1,
+              }}
+            >
+              ☰
+            </button>
+
+            {menuNavegacionAbierto && (
+              <div
+                className="nav-menu-dropdown"
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 10px)",
+                  right: 0,
+                  minWidth: "220px",
+                  background: "#0b1220",
+                  border: "1px solid #263244",
+                  borderRadius: "14px",
+                  boxShadow: "0 10px 30px rgba(2, 6, 23, 0.35)",
+                  overflow: "hidden",
+                  zIndex: 30,
+                }}
+              >
+                <button onClick={() => setTabActiva("resumen")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Resumen</button>
+                <button onClick={() => setTabActiva("movimientos")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Movimientos</button>
+                <button onClick={() => setTabActiva("agregar")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Agregar</button>
+                <button onClick={() => setTabActiva("importar")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Importar</button>
+                <button onClick={() => setTabActiva("categorias")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Categorías</button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div
+          className="desktop-tabs-wrap"
           style={{
             ...cardStyle,
             marginBottom: "16px",
