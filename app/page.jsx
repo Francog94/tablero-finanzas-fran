@@ -1102,7 +1102,7 @@ export default function Page() {
       descripcion: descripcionSugerida || "Comprobante",
       monto: "",
     });
-    setComprobanteInfo("Imagen lista para completar los datos.");
+    setComprobanteInfo("Imagen cargada. OCR pendiente de integrar.");
   }
 
   function actualizarComprobante(field, value) {
@@ -1133,12 +1133,8 @@ export default function Page() {
     const categoriaLimpia = comprobanteDraft.categoria.trim();
     const descripcionLimpia = comprobanteDraft.descripcion.trim();
     const montoNumero = Number(comprobanteDraft.monto);
-    if (!Number.isFinite(montoNumero) || montoNumero <= 0) {
-      setComprobanteError("Ingresá un monto válido mayor a 0 antes de guardar.");
-      return;
-    }
-    if (!comprobanteDraft.fecha || !categoriaLimpia || !descripcionLimpia) {
-      setComprobanteError("Completá fecha, categoría y descripción antes de guardar.");
+    if (!comprobanteDraft.fecha || !categoriaLimpia || !descripcionLimpia || !Number.isFinite(montoNumero) || montoNumero <= 0) {
+      setComprobanteError("Completá fecha, categoría, descripción y un monto válido mayor a 0.");
       return;
     }
     setComprobanteSaving(true);
@@ -1161,6 +1157,16 @@ export default function Page() {
     }
     await asegurarCategoria(categoriaLimpia);
     limpiarComprobanteCargado();
+    if (comprobantePreviewUrl) URL.revokeObjectURL(comprobantePreviewUrl);
+    setComprobanteImagen(null);
+    setComprobantePreviewUrl("");
+    setComprobanteDraft({
+      fecha: new Date().toISOString().slice(0, 10),
+      tipo: "Gasto",
+      categoria: "",
+      descripcion: "",
+      monto: "",
+    });
     setComprobanteInfo("✔️ Movimiento guardado desde comprobante.");
     setComprobanteSaving(false);
   }
@@ -2792,7 +2798,7 @@ export default function Page() {
                   <img
                     src={comprobantePreviewUrl}
                     alt="Previsualización del comprobante"
-                    style={{ width: "100%", maxHeight: 240, objectFit: "cover", objectPosition: "center", borderRadius: 12, border: "1px solid #334155" }}
+                    style={{ maxWidth: "100%", maxHeight: 320, objectFit: "contain", borderRadius: 12, border: "1px solid #334155" }}
                   />
                 )}
                 {comprobantePreviewUrl && (
@@ -2802,28 +2808,19 @@ export default function Page() {
                       <option value="Gasto">Gasto</option>
                       <option value="Ingreso">Ingreso</option>
                     </select>
-                    <input value={comprobanteDraft.categoria} onChange={(e) => actualizarComprobante("categoria", e.target.value)} style={inputStyle} placeholder="Categoría" />
-                    <input value={comprobanteDraft.descripcion} onChange={(e) => actualizarComprobante("descripcion", e.target.value)} style={inputStyle} placeholder="Descripción del comercio o comprobante" />
-                    <input type="number" value={comprobanteDraft.monto} onChange={(e) => actualizarComprobante("monto", e.target.value)} style={inputStyle} placeholder="Monto" />
+                    <input value={comprobanteDraft.categoria} onChange={(e) => actualizarComprobante("categoria", e.target.value)} style={inputStyle} placeholder="Categoría sugerida" />
+                    <input value={comprobanteDraft.descripcion} onChange={(e) => actualizarComprobante("descripcion", e.target.value)} style={inputStyle} placeholder="Descripción sugerida" />
+                    <input type="number" value={comprobanteDraft.monto} onChange={(e) => actualizarComprobante("monto", e.target.value)} style={inputStyle} placeholder="Monto sugerido" />
                   </div>
                 )}
                 {comprobantePreviewUrl && (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      onClick={guardarMovimientoDesdeComprobante}
-                      style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)", width: "fit-content" }}
-                      disabled={comprobanteSaving}
-                    >
-                      {comprobanteSaving ? "Guardando..." : "Guardar movimiento"}
-                    </button>
-                    <button
-                      onClick={limpiarComprobanteCargado}
-                      style={{ ...buttonStyle, background: "#475569", boxShadow: "none", width: "fit-content" }}
-                      disabled={comprobanteSaving}
-                    >
-                      Quitar imagen
-                    </button>
-                  </div>
+                  <button
+                    onClick={guardarMovimientoDesdeComprobante}
+                    style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)", width: "fit-content" }}
+                    disabled={comprobanteSaving}
+                  >
+                    {comprobanteSaving ? "Guardando..." : "Guardar movimiento"}
+                  </button>
                 )}
               </div>
             </div>
