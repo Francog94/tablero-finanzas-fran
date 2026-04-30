@@ -53,6 +53,16 @@ function money(n, currency = "ARS") {
   }).format(Number(n || 0));
 }
 
+function usuarioVisible(user, perfilFinanciero) {
+  if (perfilFinanciero?.alias?.trim()) return perfilFinanciero.alias.trim();
+
+  const email = user?.email || "";
+  if (!email.includes("@")) return "Usuario";
+
+  const [nombre] = email.split("@");
+  return `${nombre.slice(0, 6)}@...`;
+}
+
 
 function iconoCategoria(nombre) {
   const n = String(nombre || "").toLowerCase();
@@ -293,6 +303,7 @@ export default function Page() {
   const [perfilLoading, setPerfilLoading] = useState(true);
   const [perfilError, setPerfilError] = useState("");
   const [perfilSaving, setPerfilSaving] = useState(false);
+  const [aliasPerfil, setAliasPerfil] = useState("");
 
   const [tipo, setTipo] = useState("Gasto");
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
@@ -347,21 +358,10 @@ export default function Page() {
   const menuUsuarioRef = useRef(null);
   const menuNavegacionRef = useRef(null);
 
-  const nombreMostradoUsuario = useMemo(() => {
-    const metadata = user?.user_metadata || {};
-    const nombre =
-      metadata.full_name ||
-      metadata.name ||
-      metadata.nombre ||
-      metadata.display_name ||
-      "";
-
-    if (String(nombre).trim()) return String(nombre).trim();
-    if (!user?.email) return "Usuario";
-
-    const [alias] = user.email.split("@");
-    return `${alias}@...`;
-  }, [user]);
+  const nombreMostradoUsuario = useMemo(
+    () => usuarioVisible(user, perfilFinanciero),
+    [user, perfilFinanciero]
+  );
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
@@ -371,6 +371,7 @@ export default function Page() {
     setPerfilFinanciero(null);
     setSaldoInicial("0");
     setMoneda("ARS");
+    setAliasPerfil("");
     setPerfilError("");
     setPerfilLoading(false);
     setMenuUsuarioAbierto(false);
@@ -534,6 +535,7 @@ export default function Page() {
     setPerfilFinanciero(data);
     setSaldoInicial(String(data.saldo_inicial ?? 0));
     setMoneda(data.moneda || "ARS");
+    setAliasPerfil(data.alias || "");
     setPerfilLoading(false);
   }
 
@@ -552,6 +554,7 @@ export default function Page() {
       user_id: user.id,
       saldo_inicial: saldoNumero,
       moneda: moneda || "ARS",
+      alias: aliasPerfil.trim() || null,
     };
 
     const { data, error } = await supabase
@@ -570,6 +573,7 @@ export default function Page() {
     setPerfilFinanciero(data);
     setSaldoInicial(String(data.saldo_inicial ?? 0));
     setMoneda(data.moneda || "ARS");
+    setAliasPerfil(data.alias || "");
     setPerfilSaving(false);
   }
 
@@ -589,6 +593,7 @@ export default function Page() {
       .update({
         saldo_inicial: saldoNumero,
         moneda: moneda || "ARS",
+        alias: aliasPerfil.trim() || null,
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", user.id)
@@ -605,7 +610,74 @@ export default function Page() {
     setPerfilFinanciero(data);
     setSaldoInicial(String(data.saldo_inicial ?? 0));
     setMoneda(data.moneda || "ARS");
+    setAliasPerfil(data.alias || "");
     setPerfilSaving(false);
+  }
+
+  async function borrarTodosMisDatos() {
+    if (!user || perfilSaving || loading) return;
+
+    const confirmado = window.confirm(
+      "Esto eliminará todos tus movimientos, categorías y perfil financiero. No se puede deshacer."
+    );
+    if (!confirmado) return;
+
+    const confirmacionTexto = window.prompt('Escribí BORRAR para confirmar.');
+    if (confirmacionTexto !== "BORRAR") {
+      alert("Confirmación inválida. No se borró ningún dato.");
+      return;
+    }
+
+    setPerfilSaving(true);
+    setErrorMsg("");
+    setPerfilError("");
+
+    const { error: errorMovimientos } = await supabase
+      .from("movimientos")
+      .delete()
+      .eq("user_id", user.id);
+    if (errorMovimientos) {
+      setPerfilSaving(false);
+      setPerfilError(`No se pudieron borrar movimientos: ${errorMovimientos.message}`);
+      return;
+    }
+
+    const { error: errorCategorias } = await supabase
+      .from("categorias")
+      .delete()
+      .eq("user_id", user.id);
+    if (errorCategorias) {
+      setPerfilSaving(false);
+      setPerfilError(`No se pudieron borrar categorías: ${errorCategorias.message}`);
+      return;
+    }
+
+    const { error: errorPerfil } = await supabase
+      .from("perfil_financiero")
+      .delete()
+      .eq("user_id", user.id);
+    if (errorPerfil) {
+      setPerfilSaving(false);
+      setPerfilError(`No se pudo borrar el perfil financiero: ${errorPerfil.message}`);
+      return;
+    }
+
+    setMovimientos([]);
+    setCategorias([]);
+    setPerfilFinanciero(null);
+    setSaldoInicial("0");
+    setMoneda("ARS");
+    setAliasPerfil("");
+    setTabActiva("resumen");
+    setPerfilSaving(false);
+  }
+
+  function prepararEliminacionCuenta() {
+    alert(
+      "Para eliminar la cuenta definitivamente se requiere una función segura del servidor."
+    );
+    // La eliminación real de auth.users requiere backend/Edge Function con service role, nunca NEXT_PUBLIC.
+    // Punto de integración futuro: Supabase Edge Function "delete-user-account".
   }
 
   async function asegurarCategoria(nombreCategoria) {
@@ -1844,8 +1916,9 @@ export default function Page() {
                 </div>
                 <button onClick={() => navegarA("configuracion")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Configuración</button>
                 <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Perfil</button>
+                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); borrarTodosMisDatos(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#fca5a5", cursor: "pointer" }}>Borrar todos mis datos</button>
                 <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); cerrarSesion(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>Cerrar sesión</button>
-                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>Eliminar cuenta</button>
+                <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); prepararEliminacionCuenta(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>Eliminar cuenta</button>
               </div>
             )}
           </div>
@@ -2917,11 +2990,27 @@ export default function Page() {
                   <option value="MXN">MXN</option>
                 </select>
               </label>
+
+              <label style={{ color: "#cbd5e1", display: "grid", gap: 6 }}>
+                Alias / apodo
+                <input
+                  type="text"
+                  placeholder="Fran"
+                  value={aliasPerfil}
+                  onChange={(e) => setAliasPerfil(e.target.value)}
+                  style={inputStyle}
+                />
+              </label>
             </div>
 
             <div style={{ marginTop: 14 }}>
               <button onClick={guardarConfiguracionPerfil} style={buttonStyle} disabled={perfilSaving || !perfilFinanciero}>
                 {perfilSaving ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <button onClick={borrarTodosMisDatos} style={{ ...buttonStyle, background: "#7f1d1d", boxShadow: "none" }} disabled={perfilSaving}>
+                {perfilSaving ? "Procesando..." : "Borrar todos mis datos"}
               </button>
             </div>
           </div>
