@@ -3029,6 +3029,11 @@ export default function Page() {
                 {perfilSaving ? "Guardando..." : "Guardar cambios"}
               </button>
             </div>
+            <div style={{ marginTop: 10 }}>
+              <button onClick={borrarTodosMisDatos} style={{ ...buttonStyle, background: "#7f1d1d", boxShadow: "none" }} disabled={perfilSaving}>
+                {perfilSaving ? "Procesando..." : "Borrar todos mis datos"}
+              </button>
+            </div>
           </div>
         )}
 
