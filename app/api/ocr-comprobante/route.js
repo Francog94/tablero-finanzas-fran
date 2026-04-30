@@ -152,10 +152,22 @@ export async function POST(request) {
     const result = await aiResponse.json();
     console.log("[ocr-comprobante] OpenAI raw response:", result);
 
-    const raw = result?.output_text;
-    if (!raw) {
-      return NextResponse.json(emptyResponse());
+    let raw = "";
+
+    if (result?.output_text) {
+      raw = result.output_text;
+    } else if (result?.output && Array.isArray(result.output)) {
+      raw = result.output
+        .flatMap((o) => o.content || [])
+        .map((c) => c.text || "")
+        .join(" ");
     }
+
+    console.log("RAW OCR:", raw);
+    
+    if (!raw) {
+  return NextResponse.json(emptyResponse());
+}
 
     let parsed;
     try {
