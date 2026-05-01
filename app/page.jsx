@@ -376,6 +376,7 @@ export default function Page() {
     () => usuarioVisible(user, perfilFinanciero),
     [user, perfilFinanciero]
   );
+  const esVistaResumen = tabActiva === "resumen";
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
@@ -2046,32 +2047,33 @@ export default function Page() {
             marginBottom: "24px",
           }}
         >
-          <div className="mobile-menu-wrap" style={{ position: "relative", display: "none" }} ref={menuUsuarioRef}>
-            <button
-              onClick={() => {
-                setMenuUsuarioAbierto((prev) => !prev);
-                setMenuNavegacionAbierto(false);
-              }}
-              aria-label="Abrir menú de configuración"
-              className="user-menu-btn"
-              style={{
-                ...buttonStyle,
-                width: 44,
-                height: 44,
-                padding: "0",
-                borderRadius: "12px",
-                background: "#1e293b",
-                border: "1px solid #334155",
-                boxShadow: "none",
-                fontSize: "18px",
-                lineHeight: 1,
-              }}
-            >
-              ⚙️
-            </button>
+          {esVistaResumen && (
+            <div className="mobile-menu-wrap" style={{ position: "relative", display: "none" }} ref={menuUsuarioRef}>
+              <button
+                onClick={() => {
+                  setMenuUsuarioAbierto((prev) => !prev);
+                  setMenuNavegacionAbierto(false);
+                }}
+                aria-label="Abrir menú de configuración"
+                className="user-menu-btn"
+                style={{
+                  ...buttonStyle,
+                  width: 44,
+                  height: 44,
+                  padding: "0",
+                  borderRadius: "12px",
+                  background: "#1e293b",
+                  border: "1px solid #334155",
+                  boxShadow: "none",
+                  fontSize: "18px",
+                  lineHeight: 1,
+                }}
+              >
+                ⚙️
+              </button>
 
-            {menuUsuarioAbierto && (
-              <div
+              {menuUsuarioAbierto && (
+                <div
                 className="user-menu-dropdown"
                 style={{
                   position: "absolute",
@@ -2094,11 +2096,23 @@ export default function Page() {
                 <button onClick={() => navegarA("configuracion")} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>💰 Saldo inicial</button>
                 <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); cerrarSesion(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#e2e8f0", cursor: "pointer" }}>🚪 Cerrar sesión</button>
                 <button onClick={() => { setMenuUsuarioAbierto(false); setMenuNavegacionAbierto(false); prepararEliminacionCuenta(); }} style={{ width: "100%", textAlign: "left", padding: "11px 14px", background: "transparent", border: "none", color: "#f87171", cursor: "pointer" }}>🗑️ Eliminar cuenta</button>
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
 
-          <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1 }}>
+            {!esVistaResumen && (
+              <button
+                onClick={() => navegarA("resumen")}
+                aria-label="Volver a Resumen"
+                style={{ ...buttonStyle, padding: "8px 12px" }}
+              >
+                ←
+              </button>
+            )}
+            <h1 className="header-title" style={{ fontSize: "20px", margin: 0, letterSpacing: "-0.01em", color: "#cbd5e1" }}>Tablero financiero</h1>
+          </div>
 
           <div className="mobile-menu-wrap" style={{ position: "relative", display: "none" }} ref={menuNavegacionRef}>
             <button
