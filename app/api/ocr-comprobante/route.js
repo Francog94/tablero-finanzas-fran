@@ -108,7 +108,7 @@ export async function POST(request) {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini",
         input: [
           {
             role: "system",
@@ -129,6 +129,7 @@ export async function POST(request) {
               {
                 type: "input_image",
                 image_url: `data:${mimeType};base64,${imageBase64}`,
+                detail: "high",
               },
             ],
           },
@@ -146,7 +147,12 @@ export async function POST(request) {
 
     if (!aiResponse.ok) {
       const detail = await aiResponse.text();
-      return NextResponse.json({ error: "Error al analizar imagen.", detail }, { status: 502 });
+      console.error("[OCR] OpenAI error status:", aiResponse.status);
+      console.error("[OCR] OpenAI error detail:", detail);
+      return NextResponse.json(
+        { error: "Error al analizar imagen.", status: aiResponse.status, detail },
+        { status: 502 },
+      );
     }
 
     const result = await aiResponse.json();
