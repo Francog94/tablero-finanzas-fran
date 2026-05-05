@@ -292,6 +292,9 @@ function LineSimple({ data }) {
 }
 
 export default function Page() {
+  // Funcionalidad pausada: carga/OCR de comprobantes. Cambiar a true para reactivar.
+  const mostrarCargaComprobante = false;
+
   const [movimientos, setMovimientos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2821,74 +2824,76 @@ export default function Page() {
                 </button>
               </div>
             </div>
-            <div style={{ ...cardStyle, marginBottom: "24px" }}>
-              <h2 style={{ marginTop: 0 }}>Cargar comprobante</h2>
-              <p style={{ color: "#94a3b8", marginTop: 0 }}>
-                Subí una imagen de ticket/comprobante para generar una previsualización editable antes de guardar.
-              </p>
-              {comprobanteError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{comprobanteError}</p>}
-              {comprobanteInfo && <p style={{ color: "#86efac", marginTop: 0 }}>{comprobanteInfo}</p>}
-              <div style={{ display: "grid", gap: 10 }}>
-                <label style={{ ...buttonStyle, display: "inline-flex", width: "fit-content", alignItems: "center", gap: 8 }}>
-                  <span>Subir imagen</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    ref={comprobanteInputRef}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      procesarImagenComprobante(file);
-                    }}
-                    style={{ display: "none" }}
-                  />
-                </label>
-                {comprobantePreviewUrl && (
-                  <img
-                    src={comprobantePreviewUrl}
-                    alt="Previsualización del comprobante"
-                    style={{ maxWidth: "100%", maxHeight: 320, objectFit: "contain", borderRadius: 12, border: "1px solid #334155" }}
-                  />
-                )}
-                {comprobantePreviewUrl && (
-                  <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
-                    <input type="date" value={comprobanteDraft.fecha} onChange={(e) => actualizarComprobante("fecha", e.target.value)} style={inputStyle} />
-                    <select value={comprobanteDraft.tipo} onChange={(e) => actualizarComprobante("tipo", e.target.value)} style={inputStyle}>
-                      <option value="Gasto">Gasto</option>
-                      <option value="Ingreso">Ingreso</option>
-                    </select>
-                    <input value={comprobanteDraft.categoria} onChange={(e) => actualizarComprobante("categoria", e.target.value)} style={inputStyle} placeholder="Categoría" />
-                    <input value={comprobanteDraft.descripcion} onChange={(e) => actualizarComprobante("descripcion", e.target.value)} style={inputStyle} placeholder="Descripción del comercio o comprobante" />
-                    <input type="number" value={comprobanteDraft.monto} onChange={(e) => actualizarComprobante("monto", e.target.value)} style={inputStyle} placeholder="Monto" />
-                  </div>
-                )}
-                {comprobantePreviewUrl && (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      onClick={guardarMovimientoDesdeComprobante}
-                      style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)", width: "fit-content" }}
-                      disabled={comprobanteSaving || comprobanteAnalizando}
-                    >
-                      {comprobanteSaving ? "Guardando..." : "Guardar movimiento"}
-                    </button>
-                    <button
-                      onClick={limpiarComprobanteCargado}
-                      style={{ ...buttonStyle, background: "#475569", boxShadow: "none", width: "fit-content" }}
-                      disabled={comprobanteSaving || comprobanteAnalizando}
-                    >
-                      Quitar imagen
-                    </button>
-                    <button
-                      onClick={cancelarComprobante}
-                      style={{ ...buttonStyle, background: "#334155", boxShadow: "none", width: "fit-content" }}
-                      disabled={comprobanteSaving || comprobanteAnalizando}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )}
+            {mostrarCargaComprobante && (
+              <div style={{ ...cardStyle, marginBottom: "24px" }}>
+                <h2 style={{ marginTop: 0 }}>Cargar comprobante</h2>
+                <p style={{ color: "#94a3b8", marginTop: 0 }}>
+                  Subí una imagen de ticket/comprobante para generar una previsualización editable antes de guardar.
+                </p>
+                {comprobanteError && <p style={{ color: "#fca5a5", marginTop: 0 }}>{comprobanteError}</p>}
+                {comprobanteInfo && <p style={{ color: "#86efac", marginTop: 0 }}>{comprobanteInfo}</p>}
+                <div style={{ display: "grid", gap: 10 }}>
+                  <label style={{ ...buttonStyle, display: "inline-flex", width: "fit-content", alignItems: "center", gap: 8 }}>
+                    <span>Subir imagen</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      ref={comprobanteInputRef}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        procesarImagenComprobante(file);
+                      }}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  {comprobantePreviewUrl && (
+                    <img
+                      src={comprobantePreviewUrl}
+                      alt="Previsualización del comprobante"
+                      style={{ maxWidth: "100%", maxHeight: 320, objectFit: "contain", borderRadius: 12, border: "1px solid #334155" }}
+                    />
+                  )}
+                  {comprobantePreviewUrl && (
+                    <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+                      <input type="date" value={comprobanteDraft.fecha} onChange={(e) => actualizarComprobante("fecha", e.target.value)} style={inputStyle} />
+                      <select value={comprobanteDraft.tipo} onChange={(e) => actualizarComprobante("tipo", e.target.value)} style={inputStyle}>
+                        <option value="Gasto">Gasto</option>
+                        <option value="Ingreso">Ingreso</option>
+                      </select>
+                      <input value={comprobanteDraft.categoria} onChange={(e) => actualizarComprobante("categoria", e.target.value)} style={inputStyle} placeholder="Categoría" />
+                      <input value={comprobanteDraft.descripcion} onChange={(e) => actualizarComprobante("descripcion", e.target.value)} style={inputStyle} placeholder="Descripción del comercio o comprobante" />
+                      <input type="number" value={comprobanteDraft.monto} onChange={(e) => actualizarComprobante("monto", e.target.value)} style={inputStyle} placeholder="Monto" />
+                    </div>
+                  )}
+                  {comprobantePreviewUrl && (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        onClick={guardarMovimientoDesdeComprobante}
+                        style={{ ...buttonStyle, background: "#15803d", boxShadow: "0 8px 20px rgba(21, 128, 61, .28)", width: "fit-content" }}
+                        disabled={comprobanteSaving || comprobanteAnalizando}
+                      >
+                        {comprobanteSaving ? "Guardando..." : "Guardar movimiento"}
+                      </button>
+                      <button
+                        onClick={limpiarComprobanteCargado}
+                        style={{ ...buttonStyle, background: "#475569", boxShadow: "none", width: "fit-content" }}
+                        disabled={comprobanteSaving || comprobanteAnalizando}
+                      >
+                        Quitar imagen
+                      </button>
+                      <button
+                        onClick={cancelarComprobante}
+                        style={{ ...buttonStyle, background: "#334155", boxShadow: "none", width: "fit-content" }}
+                        disabled={comprobanteSaving || comprobanteAnalizando}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
                         <div style={{ ...cardStyle, marginBottom: "24px" }}>
               <h2 style={{ marginTop: 0 }}>Carga rápida</h2>
               <p style={{ color: "#94a3b8", marginTop: 0 }}>
