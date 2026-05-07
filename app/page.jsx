@@ -363,6 +363,7 @@ export default function Page() {
   const [categoriaEditandoId, setCategoriaEditandoId] = useState(null);
   const [categoriaEditNombre, setCategoriaEditNombre] = useState("");
   const [categoriaEditIcono, setCategoriaEditIcono] = useState("💸");
+  const [categoriaExpandida, setCategoriaExpandida] = useState("");
   const supabaseRuntimeError = supabaseConfigError || supabaseInitError;
   const [editData, setEditData] = useState({
     tipo: "Gasto",
@@ -3142,19 +3143,23 @@ export default function Page() {
             ) : (
               <div style={{ display: "grid", gap: 8 }}>
                 {categorias.map((cat) => {
-                  const cantidadMovs = movimientos.filter((m) => m.categoria === cat.nombre).length;
+                  const movimientosCategoria = movimientos
+                    .filter((m) => m.categoria === cat.nombre)
+                    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+                  const cantidadMovs = movimientosCategoria.length;
                   const enEdicion = categoriaEditandoId === cat.id;
+                  const estaExpandida = categoriaExpandida === cat.nombre;
                   return (
                     <div
                       key={cat.id}
+                      onClick={() => !enEdicion && setCategoriaExpandida(estaExpandida ? "" : cat.nombre)}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
+                        display: "grid",
+                        gap: 10,
                         border: "1px solid #334155",
                         borderRadius: 10,
                         padding: "10px 12px",
+                        cursor: enEdicion ? "default" : "pointer",
                       }}
                     >
                       {enEdicion ? (
@@ -3197,24 +3202,62 @@ export default function Page() {
                         </div>
                       ) : (
                         <>
-                          <div>
-                            <strong style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span>{cat.icono || iconoCategoria(cat.nombre)}</span>
-                              <span>{cat.nombre}</span>
-                            </strong>
-                            <div style={{ color: "#94a3b8", fontSize: 13 }}>{cantidadMovs} movimientos</div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                            <div style={{ minWidth: 0 }}>
+                              <strong style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span>{cat.icono || iconoCategoria(cat.nombre)}</span>
+                                <span>{cat.nombre}</span>
+                              </strong>
+                              <div style={{ color: "#94a3b8", fontSize: 13 }}>{cantidadMovs} movimientos</div>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", marginLeft: "auto" }}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCategoriaExpandida(estaExpandida ? "" : cat.nombre);
+                                }}
+                                style={{ ...buttonStyle, padding: "6px 8px", fontSize: 12, background: "#1e293b", boxShadow: "none", whiteSpace: "nowrap" }}
+                                disabled={categoriaGestionLoading}
+                              >
+                                {estaExpandida ? "Ocultar" : "Ver movimientos"}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  iniciarEdicionCategoria(cat);
+                                }}
+                                style={{ ...buttonStyle, padding: "6px 8px", fontSize: 12, background: "#1d4ed8", boxShadow: "none", whiteSpace: "nowrap" }}
+                                disabled={categoriaGestionLoading}
+                              >
+                                ✏️ Editar
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  intentarEliminarCategoria(cat);
+                                }}
+                                style={{ ...buttonStyle, padding: "6px 8px", fontSize: 12, background: "#7f1d1d", boxShadow: "none", whiteSpace: "nowrap" }}
+                                disabled={categoriaGestionLoading}
+                                title="Eliminar categoría"
+                              >
+                                🗑️ Eliminar
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            <button onClick={() => iniciarEdicionCategoria(cat)} style={{ ...buttonStyle, padding: "8px 10px", background: "#1d4ed8", boxShadow: "none" }} disabled={categoriaGestionLoading}>✏️ Editar</button>
-                            <button
-                              onClick={() => intentarEliminarCategoria(cat)}
-                              style={{ ...buttonStyle, padding: "8px 10px", background: "#7f1d1d", boxShadow: "none" }}
-                              disabled={categoriaGestionLoading}
-                              title="Eliminar categoría"
-                            >
-                              🗑️ Eliminar categoría
-                            </button>
-                          </div>
+
+                          {estaExpandida && (
+                            <div style={{ borderTop: "1px solid #233044", paddingTop: 8, display: "grid", gap: 6 }}>
+                              {movimientosCategoria.length === 0 ? (
+                                <div style={{ color: "#94a3b8", fontSize: 13 }}>Sin movimientos</div>
+                              ) : (
+                                movimientosCategoria.map((mov) => (
+                                  <div key={mov.id} style={{ color: "#cbd5e1", fontSize: 13, lineHeight: 1.4 }}>
+                                    {formatearFecha(mov.fecha)} · {mov.descripcion || "Sin descripción"} · {money(mov.monto, mov.moneda || monedaActiva)} · {mov.tipo}
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
